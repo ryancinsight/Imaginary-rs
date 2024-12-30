@@ -1,4 +1,3 @@
-use crate::image::operations;
 use image::DynamicImage;
 
 pub struct ImagePipeline {

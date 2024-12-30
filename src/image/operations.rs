@@ -1,5 +1,6 @@
 use crate::http::errors::AppError;
-use image::{DynamicImage, imageops::FilterType, GenericImage};
+use image::{DynamicImage, imageops::FilterType, GenericImage, ImageFormat};
+use std::io::Cursor;
 
 pub fn resize(image: DynamicImage, width: u32, height: u32) -> DynamicImage {
     image.resize_exact(width, height, FilterType::Lanczos3)
@@ -54,4 +55,14 @@ pub fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32)
 
 pub fn draw_text(image: DynamicImage, _text: &str, _x: u32, _y: u32, _font_size: u32) -> DynamicImage {
     // Placeholder implementation
+    image // Return the original image for now
+}
+
+pub fn convert_format(image: DynamicImage, format: ImageFormat) -> Result<DynamicImage, AppError> {
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+    image.write_to(&mut cursor, format)
+        .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
+    image::load_from_memory(&buffer)
+        .map_err(|e| AppError::ImageProcessingError(e.to_string()))
 }

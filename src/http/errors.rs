@@ -14,6 +14,16 @@ pub enum AppError {
     BadRequest,
     #[error("Image Processing Error: {0}")]
     ImageProcessingError(String),
+    #[error("Unsupported Media Type")]
+    UnsupportedMediaType,
+    #[error("Payload Too Large")]
+    PayloadTooLarge,
+    #[error("Rate Limit Exceeded")]
+    RateLimitExceeded,
+    #[error("Invalid Operation: {0}")]
+    InvalidOperation(String),
+    #[error("File System Error: {0}")]
+    FileSystemError(String),
 }
 
 impl IntoResponse for AppError {
@@ -31,9 +41,34 @@ impl IntoResponse for AppError {
                 StatusCode::BAD_REQUEST,
                 msg,
             ),
+            AppError::UnsupportedMediaType => (
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported media type".to_string(),
+            ),
+            AppError::PayloadTooLarge => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "File size too large".to_string(),
+            ),
+            AppError::RateLimitExceeded => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+            ),
+            AppError::InvalidOperation(msg) => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid operation: {}", msg),
+            ),
+            AppError::FileSystemError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("File system error: {}", msg),
+            ),
         };
 
-        let body = Json(json!({ "error": error_message }));
+        let body = Json(json!({
+            "error": error_message,
+            "code": status.as_u16(),
+            "status": "error"
+        }));
+        
         (status, body).into_response()
     }
 }

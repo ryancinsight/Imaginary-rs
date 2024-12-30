@@ -9,9 +9,21 @@ repository = "https://github.com/ryancinsight/imaginary-rs"
 
 [dependencies]
 # Web framework
-axum = "0.7.9"
+axum = {version = "0.7.9", features= ["multipart"]}
 tower = "0.5.2"
-tower-http = { version = "0.6.2", features = ["cors", "trace"] }
+tower-http = { version = "0.6.2", features = [
+    "cors", 
+    "trace",
+    "compression-full",
+    "limit",
+    "timeout",
+    "catch-panic",
+    "request-id",
+    "sensitive-headers",
+    "validate-request",
+    "trace"
+]}
+hyper = { version = "1.5.2", features = ["full"] }
 
 # Image processing
 image = "0.25.5"
@@ -54,6 +66,11 @@ sha2 = "0.10"
 hmac = "0.12"
 rand = "0.8"
 
+# Performance optimizations
+rayon = "1.8"
+cached = "0.46"
+crossbeam = "0.8"
+
 [dev-dependencies]
 tokio-test = "0.4"
 pretty_assertions = "1.4"
@@ -67,6 +84,7 @@ png = []
 webp = []
 heif = []
 gif = []
+simd = []  # Optional SIMD optimizations
 
 [profile.release]
 opt-level = 3

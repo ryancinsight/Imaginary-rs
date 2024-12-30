@@ -32,3 +32,12 @@ fn test_overlay() {
     let overlaid_img = result.unwrap();
     assert_eq!(overlaid_img.dimensions(), (100, 100)); // Dimensions should remain the same
 }
+
+#[test]
+fn test_convert_format() {
+    let img = RgbaImage::new(100, 100);
+    let dynamic_img = DynamicImage::ImageRgba8(img);
+    let converted_img = convert_format(dynamic_img.clone(), ImageFormat::Png).unwrap();
+    
+    assert_eq!(converted_img.color(), ColorType::Rgba8); // Check the color type
+}

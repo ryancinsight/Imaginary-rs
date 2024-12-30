@@ -18,3 +18,31 @@ pub struct CropParams {
     pub width: u32,
     pub height: u32,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct WatermarkParams {
+    pub opacity: f32,
+    pub position: WatermarkPosition,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum WatermarkPosition {
+    Center,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FormatConversionParams {
+    pub format: String,
+    pub quality: Option<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SmartCropParams {
+    pub width: u32,
+    pub height: u32,
+    pub quality: Option<u8>,
+}
