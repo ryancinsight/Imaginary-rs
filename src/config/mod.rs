@@ -2,46 +2,28 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use anyhow::{Result, Context};
 use clap::ArgMatches;
-
+use crate::server::ServerConfig;
+use crate::security::SecurityConfig;
+use crate::storage::StorageConfig;  // Updated import path
 pub mod cli;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     pub server: ServerConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
+    #[serde(default)]
     pub storage: StorageConfig,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ServerConfig {
-    pub port: u16,
-    pub host: String,
-    pub read_timeout: u64,
-    pub write_timeout: u64,
-    pub concurrency: usize,
-    #[serde(default = "default_max_body_size")]
-    pub max_body_size: usize,
-}
-
-fn default_max_body_size() -> usize {
-    10 * 1024 * 1024  // 10MB default
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SecurityConfig {
-    pub key: Option<String>,
-    pub salt: Option<String>,
-    pub allowed_origins: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct StorageConfig {
-    pub temp_dir: PathBuf,
-    pub max_cache_size: usize,
-}
+// StorageConfig moved to storage/options.rs
 
 pub fn load_config(matches: &ArgMatches) -> Result<Config> {
-    let config_file = matches.get_one::<String>("config").map(String::as_str).unwrap_or("config/default");
+    let config_file = matches.get_one::<String>("config")
+        .map(String::as_str)
+        .unwrap_or("config/default");
+
     let mut builder = config::Config::builder()
         .add_source(config::File::with_name(config_file).required(false))
         .add_source(config::Environment::with_prefix("IMAGINARY"));

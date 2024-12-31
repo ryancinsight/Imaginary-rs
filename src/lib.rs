@@ -1,8 +1,9 @@
-pub mod config;
-pub mod http;
-pub mod image;
-pub mod server;
-pub mod utils;
+mod config;
+mod http;
+mod image;
+mod server;
+mod storage;  // Ensure this is public
+mod security; // Ensure this is public
 
 // Re-export public items from modules if needed
 pub use config::load_config;
