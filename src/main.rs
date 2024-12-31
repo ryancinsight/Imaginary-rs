@@ -1,38 +1,32 @@
-use axum::Router;
-use std::net::SocketAddr;
-use tracing_subscriber;
-use tokio::net::TcpListener;
-use crate::config::cli::build_cli;
-use crate::server::routes::create_router;
+use std::sync::Arc;
+use crate::config::{Config, cli};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
+mod server;
 mod http;
 mod image;
-mod server;
 mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing for logging
-    tracing_subscriber::fmt::init();
+    // Initialize logging
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     // Parse command line arguments
-    let matches = build_cli().get_matches();
+    let matches = cli::build_cli().get_matches();
 
     // Load configuration
-    let config = config::load_config(&matches).expect("Failed to load configuration");
+    let config = config::load_config(&matches)?;
+    let config = Arc::new(config);
 
-    // Create the router with routes and middleware
-    let app = create_router();
-
-    // Define the address to bind the server
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
-
-    tracing::info!("Server running on {}", addr);
-
-    // Create a TcpListener and serve the application
-    let listener = TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // Start server (now passing Arc<Config> directly)
+    server::run_server(config).await?;
 
     Ok(())
 }

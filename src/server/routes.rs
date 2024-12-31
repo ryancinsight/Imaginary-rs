@@ -1,12 +1,12 @@
 use axum::{
     routing::{get, post},
     Router,
-    http::{self, HeaderName, StatusCode},
+    http::{HeaderName, StatusCode, Request},
     response::IntoResponse,
-    body::Body,
+    extract::DefaultBodyLimit,
 };
 use std::time::Duration;
-use tower::{ServiceBuilder, util::AndThenLayer};
+use tower::layer::Layer;
 use tower_http::{
     cors::{Any, CorsLayer},
     compression::CompressionLayer,
@@ -17,11 +17,13 @@ use tower_http::{
     catch_panic::CatchPanicLayer,
 };
 use tracing::Level;
-use http::request::Request;
 
 use crate::http::handlers::{health_check, process_image};
+use crate::config::Config;
+use std::sync::Arc;
 
-pub fn create_router() -> Router {
+// Changed the return type to be explicit about the state type
+pub fn create_router() -> Router<Arc<Config>> {
     // Create base router
     Router::new()
         .route("/", get(health_check))
@@ -34,16 +36,16 @@ pub fn create_router() -> Router {
                 .allow_headers(Any),
         )
         .layer(CompressionLayer::new())
-        // Add request ID
+        // These layers will get their config values from the state when handling requests
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // Default 10MB
         .layer(
             SetRequestIdLayer::new(
                 HeaderName::from_static("x-request-id"),
                 MakeRequestUuid::default(),
             )
         )
-        // Add timeout and limits
-        .layer(TimeoutLayer::new(Duration::from_secs(30)))
-        .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
+        .layer(TimeoutLayer::new(Duration::from_secs(30))) // Default 30 seconds
+        .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024)) // Default 10MB
         // Add tracing last
         .layer(
             TraceLayer::new_for_http()

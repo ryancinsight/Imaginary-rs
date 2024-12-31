@@ -19,6 +19,12 @@ pub struct ServerConfig {
     pub read_timeout: u64,
     pub write_timeout: u64,
     pub concurrency: usize,
+    #[serde(default = "default_max_body_size")]
+    pub max_body_size: usize,
+}
+
+fn default_max_body_size() -> usize {
+    10 * 1024 * 1024  // 10MB default
 }
 
 #[derive(Debug, Deserialize)]

@@ -65,6 +65,7 @@ base64 = "0.22.1"
 sha2 = "0.10"
 hmac = "0.12"
 rand = "0.8"
+http = "1.0"
 
 # Performance optimizations
 rayon = "1.8"

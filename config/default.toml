@@ -4,6 +4,7 @@ host = "127.0.0.1"
 read_timeout = 30
 write_timeout = 30
 concurrency = 4
+max_body_size = 10485760  # 10MB in bytes
 
 [security]
 key = ""
@@ -11,5 +12,5 @@ salt = ""
 allowed_origins = ["*"]
 
 [storage]
-temp_dir = "/tmp"
-max_cache_size = 104857600  # 100 MB
+temp_dir = "temp"
+max_cache_size = 1073741824  # 1GB in bytes

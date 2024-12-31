@@ -24,6 +24,8 @@ pub enum AppError {
     InvalidOperation(String),
     #[error("File System Error: {0}")]
     FileSystemError(String),
+    #[error("Multipart Error: {0}")]
+    MultipartError(String),
 }
 
 impl IntoResponse for AppError {
@@ -47,7 +49,7 @@ impl IntoResponse for AppError {
             ),
             AppError::PayloadTooLarge => (
                 StatusCode::PAYLOAD_TOO_LARGE,
-                "File size too large".to_string(),
+                "Image size exceeds maximum limit".to_string(),
             ),
             AppError::RateLimitExceeded => (
                 StatusCode::TOO_MANY_REQUESTS,
@@ -60,6 +62,10 @@ impl IntoResponse for AppError {
             AppError::FileSystemError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("File system error: {}", msg),
+            ),
+            AppError::MultipartError(msg) => (
+                StatusCode::BAD_REQUEST,
+                msg,
             ),
         };
 
