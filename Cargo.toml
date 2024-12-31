@@ -28,13 +28,9 @@ hyper = { version = "1.5.2", features = ["full"] }
 # Image processing
 image = "0.25.5"
 imageproc = "0.25.0"
-webp = "0.3.0"
-mozjpeg = "0.10.12"
 
 # Runtime and async
 tokio = { version = "1.32", features = ["full"] }
-futures = "0.3"
-
 # Error handling
 thiserror = "2.0.9"
 anyhow = "1.0"
@@ -68,15 +64,13 @@ rand = "0.8"
 http = "1.0"
 
 # Performance optimizations
-rayon = "1.8"
 cached = "0.46"
 crossbeam = "0.8"
+hex = "0.4.3"
+toml = "0.8.19"
 
 [dev-dependencies]
-tokio-test = "0.4"
 pretty_assertions = "1.4"
-mockall = "0.13.1"
-wiremock = "0.6.2"
 
 [features]
 default = ["jpeg", "png", "webp"]

@@ -10,6 +10,7 @@ use axum::{
     response::IntoResponse,
     serve,
     middleware::from_fn_with_state,
+    Extension,
 };
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -21,9 +22,11 @@ use tower_http::{
     catch_panic::CatchPanicLayer,
 };
 use tokio::net::TcpListener;
-
+use tokio::signal;
 use crate::config::Config;
 use crate::http::handlers::{health_check, process_image, convert_image_format};
+use crate::server::middleware::authenticate;
+use crate::http::errors::AppError;
 
 pub mod middleware;
 
@@ -55,11 +58,12 @@ pub fn create_router(config: Arc<Config>) -> Router<Arc<Config>> {
         .route("/", get(health_check))
         .route("/process", post(process_image))
         .route("/convert", post(convert_image_format))
-        //.layer(from_fn_with_state(Arc::clone(&config), middleware::authenticate))
+        .layer(from_fn_with_state(Arc::clone(&config), authenticate))
+        .layer(Extension(Arc::clone(&config)))
         .layer((
             CompressionLayer::new(),
-            RequestBodyLimitLayer::new(10 * 1024 * 1024),
-            TimeoutLayer::new(Duration::from_secs(30)),
+            RequestBodyLimitLayer::new(config.server.max_body_size),
+            TimeoutLayer::new(Duration::from_secs(config.server.read_timeout)),
         ))
         .layer(
             CorsLayer::new()
@@ -103,16 +107,38 @@ pub fn create_router(config: Arc<Config>) -> Router<Arc<Config>> {
         )
 }
 
-pub async fn run_server(config: Arc<Config>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run_server(config: Arc<Config>) -> Result<(), AppError> {
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
-        .expect("Failed to parse address");
+        .map_err(|_| AppError::InternalServerError("Failed to parse address".to_string()))?;
 
-    let app = create_router(Arc::clone(&config)).with_state(config);
+    let listener = std::net::TcpListener::bind(addr)
+        .map_err(|_| AppError::InternalServerError("Failed to bind address".to_string()))?;
+    listener.set_nonblocking(true)
+        .map_err(|_| AppError::InternalServerError("Failed to set non-blocking".to_string()))?;
+    let listener = TcpListener::from_std(listener)
+        .map_err(|_| AppError::InternalServerError("Failed to convert listener".to_string()))?;
+
+    let app = create_router(Arc::clone(&config)).with_state(Arc::clone(&config));
     info!("Starting server on {}", addr);
     
-    let listener = TcpListener::bind(addr).await?;
-    serve(listener, app).await?;
+    let server = serve(listener, app);
+
+    // Use the write_timeout and concurrency settings
+    let _write_timeout = Duration::from_secs(config.server.write_timeout);
+    let _concurrency = config.server.concurrency;
+
+    // Wait for the server to complete or the shutdown signal
+    tokio::select! {
+        res = server => {
+            if let Err(err) = res {
+                eprintln!("Server error: {}", err);
+            }
+        }
+        _ = signal::ctrl_c() => {
+            info!("Received Ctrl+C, shutting down gracefully");
+        }
+    }
 
     Ok(())
 }

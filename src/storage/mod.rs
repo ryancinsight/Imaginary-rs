@@ -7,8 +7,6 @@ use sha2::{Sha256, Digest};
 use std::fs;
 use std::io::Read;
 use tracing::info;
-use axum::extract::multipart::Field;
-use bytes::Bytes;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct StorageConfig {

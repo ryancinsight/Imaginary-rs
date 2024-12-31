@@ -1,13 +1,14 @@
 use crate::http::errors::AppError;
-use image::{DynamicImage, imageops::FilterType, GenericImage, ImageFormat,RgbaImage};
+use image::{DynamicImage, imageops::FilterType, GenericImage, ImageFormat};
 use std::io::Cursor;
+use crate::image::params::{ResizeParams, RotateParams, CropParams, FormatConversionParams};
 
-pub fn resize(image: DynamicImage, width: u32, height: u32) -> DynamicImage {
-    image.resize_exact(width, height, FilterType::Lanczos3)
+pub fn resize(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
+    image.resize_exact(params.width, params.height, FilterType::Lanczos3)
 }
 
-pub fn rotate(image: DynamicImage, degrees: f32) -> DynamicImage {
-    match degrees {
+pub fn rotate(image: DynamicImage, params: &RotateParams) -> DynamicImage {
+    match params.degrees {
         90.0 => image.rotate90(),
         180.0 => image.rotate180(),
         270.0 => image.rotate270(),
@@ -15,8 +16,8 @@ pub fn rotate(image: DynamicImage, degrees: f32) -> DynamicImage {
     }
 }
 
-pub fn crop(image: DynamicImage, x: u32, y: u32, width: u32, height: u32) -> DynamicImage {
-    image.crop_imm(x, y, width, height)
+pub fn crop(image: DynamicImage, params: &CropParams) -> DynamicImage {
+    image.crop_imm(params.x, params.y, params.width, params.height)
 }
 
 pub fn flip_horizontal(image: DynamicImage) -> DynamicImage {
@@ -58,21 +59,21 @@ pub fn draw_text(image: DynamicImage, _text: &str, _x: u32, _y: u32, _font_size:
     image // Return the original image for now
 }
 
-pub fn convert_format(image: DynamicImage, format: ImageFormat) -> Result<DynamicImage, AppError> {
+pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> Result<DynamicImage, AppError> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
-    image.write_to(&mut cursor, format)
+    image.write_to(&mut cursor, ImageFormat::from_extension(&params.format).unwrap())
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
     image::load_from_memory(&buffer)
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))
 }
 
-
 #[test]
 fn test_resize() {
     let img = RgbaImage::new(100, 100); // Create a dummy image
     let dynamic_img = DynamicImage::ImageRgba8(img);
-    let resized_img = resize(dynamic_img.clone(), 50, 50);
+    let params = ResizeParams { width: 50, height: 50 };
+    let resized_img = resize(dynamic_img.clone(), &params);
     
     assert_eq!(resized_img.dimensions(), (50, 50));
 }
@@ -81,7 +82,8 @@ fn test_resize() {
 fn test_rotate() {
     let img = RgbaImage::new(100, 100);
     let dynamic_img = DynamicImage::ImageRgba8(img);
-    let rotated_img = rotate(dynamic_img.clone(), 90.0);
+    let params = RotateParams { degrees: 90.0 };
+    let rotated_img = rotate(dynamic_img.clone(), &params);
     
     assert_eq!(rotated_img.dimensions(), (100, 100)); // Dimensions should remain the same
 }
@@ -104,7 +106,8 @@ fn test_overlay() {
 fn test_convert_format() {
     let img = RgbaImage::new(100, 100);
     let dynamic_img = DynamicImage::ImageRgba8(img);
-    let converted_img = convert_format(dynamic_img.clone(), ImageFormat::Png).unwrap();
+    let params = FormatConversionParams { format: "png".to_string() };
+    let converted_img = convert_format(dynamic_img.clone(), &params).unwrap();
     
     assert_eq!(converted_img.color(), ColorType::Rgba8); // Check the color type
 }

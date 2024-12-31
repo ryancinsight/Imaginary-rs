@@ -19,6 +19,7 @@ use crate::http::errors::AppError;
 use crate::config::Config;
 use crate::storage::{cache_result, get_result};
 use std::path::PathBuf;
+use crate::image::params::{ResizeParams, FormatConversionParams};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -44,10 +45,7 @@ pub async fn process_image(
     // Use configured temp directory
     let temp_dir = config.storage.temp_dir.to_str().unwrap_or("temp");
     if let Err(e) = fs::create_dir_all(temp_dir) {
-        return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
-            "status": "error",
-            "message": format!("Failed to create temp directory: {}", e)
-        }))).into_response());
+        return Err(AppError::FileSystemError(format!("Failed to create temp directory: {}", e)));
     }
     
     while let Some(field) = multipart.next_field().await.map_err(|e| AppError::MultipartError(e.to_string()))? {
@@ -69,7 +67,7 @@ pub async fn process_image(
                 .unwrap_or(0);
             
             if size > 10 * 1024 * 1024 {  // 10MB
-                return Err(AppError::PayloadTooLarge);
+                return Err(AppError::PayloadTooLarge("Payload too large".to_string()));
             }
         }
 
@@ -79,10 +77,7 @@ pub async fn process_image(
 
         let data = match field.bytes().await {
             Ok(data) => data,
-            Err(e) => return Ok((StatusCode::BAD_REQUEST, Json(json!({
-                "status": "error",
-                "message": format!("Failed to read file data: {}", e)
-            }))).into_response()),
+            Err(e) => return Err(AppError::MultipartError(format!("Failed to read file data: {}", e))),
         };
 
         info!("Received file: {}", name);
@@ -91,16 +86,10 @@ pub async fn process_image(
         let file_path = format!("{}/{}", temp_dir, name);
         let mut file = match File::create(&file_path) {
             Ok(f) => f,
-            Err(e) => return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
-                "status": "error",
-                "message": format!("Failed to create file: {}", e)
-            }))).into_response()),
+            Err(e) => return Err(AppError::FileSystemError(format!("Failed to create file: {}", e))),
         };
         if let Err(e) = file.write_all(&data) {
-            return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
-                "status": "error",
-                "message": format!("Failed to write to file: {}", e)
-            }))).into_response());
+            return Err(AppError::FileSystemError(format!("Failed to write to file: {}", e)));
         }
 
         // Ensure the file is flushed and closed properly
@@ -111,10 +100,7 @@ pub async fn process_image(
             Ok(i) => i,
             Err(e) => {
                 info!("Failed to open image: {}", e);
-                return Ok((StatusCode::BAD_REQUEST, Json(json!({
-                    "status": "error",
-                    "message": format!("Failed to open image: {}", e)
-                }))).into_response());
+                return Err(AppError::ImageProcessingError(format!("Failed to open image: {}", e)));
             },
         };
 
@@ -132,15 +118,13 @@ pub async fn process_image(
         }
 
         // Perform the resize operation (example)
-        let resized_img = operations::resize(img, 100, 100);
+        let params = ResizeParams { width: 100, height: 100 };
+        let resized_img = operations::resize(img, &params);
 
         // Save the processed image
         let output_path = format!("{}/processed_{}", temp_dir, name);
         if let Err(e) = resized_img.save(&output_path) {
-            return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
-                "status": "error",
-                "message": format!("Failed to save processed image: {}", e)
-            }))).into_response());
+            return Err(AppError::FileSystemError(format!("Failed to save processed image: {}", e)));
         }
 
         // Cache the result
@@ -160,10 +144,7 @@ pub async fn process_image(
         }))).into_response());
     }
 
-    Ok((StatusCode::BAD_REQUEST, Json(json!({
-        "status": "error",
-        "message": "No file uploaded"
-    }))).into_response())
+    Err(AppError::BadRequest("Bad request".to_string()))
 }
 
 async fn check_early_cache(field: &Field<'_>) -> Option<PathBuf> {
@@ -188,37 +169,19 @@ async fn check_early_cache(field: &Field<'_>) -> Option<PathBuf> {
 pub async fn convert_image_format(
     State(config): State<Arc<Config>>,
     mut multipart: Multipart
-) -> impl IntoResponse {
+) -> Result<Response, AppError> {
     info!("Processing format conversion");
     
     // Use configured temp directory
     let temp_dir = config.storage.temp_dir.to_str().unwrap_or("temp");
     if let Err(e) = fs::create_dir_all(temp_dir) {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to create temp directory: {}", e)
-            }))
-        );
+        return Err(AppError::FileSystemError(format!("Failed to create temp directory: {}", e)));
     }
     
     let field = match multipart.next_field().await {
         Ok(Some(field)) => field,
-        Ok(None) => return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "status": "error",
-                "message": "No file uploaded"
-            }))
-        ),
-        Err(e) => return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to process upload: {}", e)
-            }))
-        ),
+        Ok(None) => return Err(AppError::BadRequest("Bad request".to_string())),
+        Err(e) => return Err(AppError::MultipartError(format!("Failed to process upload: {}", e))),
     };
 
     let name = field.file_name()
@@ -227,46 +190,32 @@ pub async fn convert_image_format(
 
     let data = match field.bytes().await {
         Ok(data) => data,
-        Err(e) => return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to read file data: {}", e)
-            }))
-        ),
+        Err(e) => return Err(AppError::MultipartError(format!("Failed to read file data: {}", e))),
     };
 
     let format = match ImageFormat::from_path(name.clone()) {
         Ok(f) => f,
-        Err(e) => return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "status": "error",
-                "message": format!("Invalid image format: {}", e)
-            }))
-        ),
+        Err(_e) => return Err(AppError::UnsupportedMediaType("Unsupported media type".to_string())),
     };
+
+    // Simulate rate limit exceeded error
+    if false {
+        return Err(AppError::RateLimitExceeded("Rate limit exceeded".to_string()));
+    }
+
+    // Simulate invalid operation error
+    if false {
+        return Err(AppError::InvalidOperation("Invalid operation example".to_string()));
+    }
 
     // Process image conversion
     let temp_path = format!("{}/{}", temp_dir, name);
     let mut file = match File::create(&temp_path) {
         Ok(f) => f,
-        Err(e) => return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to create file: {}", e)
-            }))
-        ),
+        Err(e) => return Err(AppError::FileSystemError(format!("Failed to create file: {}", e))),
     };
     if let Err(e) = file.write_all(&data) {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to write to file: {}", e)
-            }))
-        );
+        return Err(AppError::FileSystemError(format!("Failed to write to file: {}", e)));
     }
 
     // Ensure the file is flushed and closed properly
@@ -276,43 +225,23 @@ pub async fn convert_image_format(
         Ok(i) => i,
         Err(e) => {
             info!("Failed to open image: {}", e);
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "status": "error",
-                    "message": format!("Failed to open image: {}", e)
-                }))
-            );
+            return Err(AppError::ImageProcessingError(format!("Failed to open image: {}", e)));
         },
     };
-    let converted = match operations::convert_format(img, format) {
+    let params = FormatConversionParams { format: format!("{:?}", format), quality: None };
+    let converted = match operations::convert_format(img, &params) {
         Ok(c) => c,
-        Err(e) => return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to convert image: {}", e)
-            }))
-        ),
+        Err(e) => return Err(AppError::ImageProcessingError(format!("Failed to convert image: {}", e))),
     };
     
     let output_path = format!("{}/converted_{}", temp_dir, name);
     if let Err(e) = converted.save(&output_path) {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": "error",
-                "message": format!("Failed to save converted image: {}", e)
-            }))
-        );
+        return Err(AppError::FileSystemError(format!("Failed to save converted image: {}", e)));
     }
 
-    return (
-        StatusCode::OK,
-        Json(json!({
-            "status": "success",
-            "message": "Image converted successfully",
-            "output_path": output_path
-        }))
-    );
+    Ok((StatusCode::OK, Json(json!({
+        "status": "success",
+        "message": "Image converted successfully",
+        "output_path": output_path
+    }))).into_response())
 }

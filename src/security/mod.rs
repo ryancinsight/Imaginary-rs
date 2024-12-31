@@ -1,12 +1,11 @@
 use serde::Deserialize;
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
 use anyhow::Result;
-use base64::engine::general_purpose::STANDARD;
-use base64::Engine;
-use rand::Rng;
+use hmac::{Hmac, Mac};
+use sha2::{Sha256, Digest};
+use rand::{Rng, distributions::Alphanumeric};
+type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct SecurityConfig {
     #[serde(default = "default_key")]
     pub key: Option<String>,
@@ -18,55 +17,63 @@ pub struct SecurityConfig {
 
 // Default implementations
 fn default_key() -> Option<String> {
-    None
+    Some("default_key".to_string())
 }
 
 fn default_salt() -> Option<String> {
-    None
+    Some("default_salt".to_string())
 }
 
 fn default_allowed_origins() -> Vec<String> {
-    vec!["*".to_string()]
+    vec!["*".to_string(), "http://localhost".to_string()]
 }
 
 impl SecurityConfig {
+    fn prepare_key(&self) -> Vec<u8> {
+        let key = self.key.clone().unwrap_or_else(|| "default_key".to_string());
+        let mut hasher = Sha256::new();
+        hasher.update(key.as_bytes());
+        hasher.finalize().to_vec()
+    }
+
     pub fn generate_api_key(&mut self) -> String {
-        let api_key: [u8; 32] = rand::thread_rng().gen();
-        let api_key_str = STANDARD.encode(&api_key);
-        self.key = Some(api_key_str.clone());
-        api_key_str
+        if self.key.is_none() || self.key.as_ref().unwrap().is_empty() {
+            let generated_key: String = rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .map(char::from)
+                .collect();
+            self.key = Some(generated_key);
+        }
+        self.key.clone().unwrap()
+    }
+
+    pub fn set_api_key(&mut self, key: String) {
+        self.key = Some(key);
     }
 
     pub fn validate_signature(&self, data: &[u8], signature: &str) -> Result<bool> {
-        let key = match &self.key {
-            Some(k) if !k.is_empty() => k,
-            _ => return Ok(false),
-        };
-
-        let mut mac = Hmac::<Sha256>::new_from_slice(key.as_bytes())?;
+        let key = self.prepare_key();
+        let mut mac = HmacSha256::new_from_slice(&key)?;
         mac.update(data);
 
-        let decoded_sig = STANDARD.decode(signature)?;
-        Ok(mac.verify_slice(&decoded_sig).is_ok())
+        let sig_bytes = hex::decode(signature)?;
+        Ok(mac.verify_slice(&sig_bytes).is_ok())
     }
 
     pub fn is_origin_allowed(&self, origin: &str) -> bool {
-        self.allowed_origins.iter().any(|allowed| {
-            allowed == "*" || allowed == origin
-        })
+        self.allowed_origins.contains(&origin.to_string()) || self.allowed_origins.contains(&"*".to_string())
     }
 
     pub fn generate_signature(&self, data: &[u8]) -> Result<String> {
-        let key = self.key.as_ref().ok_or_else(|| anyhow::anyhow!("No security key configured"))?;
-        let mut mac = Hmac::<Sha256>::new_from_slice(key.as_bytes())?;
+        let key = self.prepare_key();
+        let mut mac = HmacSha256::new_from_slice(&key)?;
         mac.update(data);
-        
-        let result = mac.finalize();
-        Ok(STANDARD.encode(result.into_bytes()))
+        Ok(hex::encode(mac.finalize().into_bytes()))
     }
 
     pub fn is_secure(&self) -> bool {
-        self.key.is_some() && self.key.as_ref().map_or(false, |k| !k.is_empty())
+        self.key.is_some() && self.salt.is_some()
     }
 }
 
@@ -80,7 +87,7 @@ mod tests {
         let config = SecurityConfig::default();
         assert!(config.key.is_none());
         assert!(config.salt.is_none());
-        assert_eq!(config.allowed_origins, vec!["*"]);
+        assert_eq!(config.allowed_origins, vec!["*", "http://localhost"]);
     }
 
     #[test]
