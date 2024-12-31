@@ -1,10 +1,9 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 use anyhow::{Result, Context};
 use clap::ArgMatches;
 use crate::server::ServerConfig;
 use crate::security::SecurityConfig;
-use crate::storage::StorageConfig;  // Updated import path
+use crate::storage::StorageConfig;
 pub mod cli;
 
 #[derive(Debug, Deserialize)]
@@ -16,8 +15,6 @@ pub struct Config {
     #[serde(default)]
     pub storage: StorageConfig,
 }
-
-// StorageConfig moved to storage/options.rs
 
 pub fn load_config(matches: &ArgMatches) -> Result<Config> {
     let config_file = matches.get_one::<String>("config")

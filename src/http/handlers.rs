@@ -5,6 +5,8 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use axum::extract::multipart::Field;
+use crate::storage;
 use image::ImageFormat;
 use serde_json::json;
 use crate::image::operations;
@@ -15,6 +17,8 @@ use std::env;
 use std::sync::Arc;
 use crate::http::errors::AppError;
 use crate::config::Config;
+use crate::storage::{cache_result, get_result};
+use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -47,6 +51,17 @@ pub async fn process_image(
     }
     
     while let Some(field) = multipart.next_field().await.map_err(|e| AppError::MultipartError(e.to_string()))? {
+        // Early metadata check
+        if let Some(cached_path) = check_early_cache(&field).await {
+            if cached_path.exists() {
+                return Ok((StatusCode::OK, Json(json!({
+                    "status": "success",
+                    "message": "Image retrieved from cache (metadata match)",
+                    "output_path": cached_path
+                }))).into_response());
+            }
+        }
+
         if let Some(content_length) = field.headers().get(header::CONTENT_LENGTH) {
             let size = content_length.to_str()
                 .unwrap_or("0")
@@ -103,6 +118,19 @@ pub async fn process_image(
             },
         };
 
+        let operation_params = format!("resize_{}x{}", 100, 100); // Example parameters
+        
+        // Check cache first
+        if let Some(cached_path) = get_result(&PathBuf::from(&file_path), "resize", &operation_params) {
+            if cached_path.exists() {
+                return Ok((StatusCode::OK, Json(json!({
+                    "status": "success",
+                    "message": "Image retrieved from cache",
+                    "output_path": cached_path
+                }))).into_response());
+            }
+        }
+
         // Perform the resize operation (example)
         let resized_img = operations::resize(img, 100, 100);
 
@@ -114,6 +142,14 @@ pub async fn process_image(
                 "message": format!("Failed to save processed image: {}", e)
             }))).into_response());
         }
+
+        // Cache the result
+        cache_result(
+            &PathBuf::from(&file_path),
+            "resize",
+            &operation_params,
+            &PathBuf::from(&output_path)
+        );
 
         info!("Image processed successfully: {}", output_path);
 
@@ -128,6 +164,25 @@ pub async fn process_image(
         "status": "error",
         "message": "No file uploaded"
     }))).into_response())
+}
+
+async fn check_early_cache(field: &Field<'_>) -> Option<PathBuf> {
+    let filename = field.file_name()?;
+    let content_type = field.content_type()?.to_string();
+    let content_length = field.headers()
+        .get(header::CONTENT_LENGTH)?
+        .to_str()
+        .ok()?
+        .parse::<usize>()
+        .ok()?;
+
+    storage::check_cached_metadata(
+        filename,
+        content_length,
+        &content_type,
+        "resize",
+        "100x100",
+    )
 }
 
 pub async fn convert_image_format(

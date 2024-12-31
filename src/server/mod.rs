@@ -9,6 +9,7 @@ use axum::{
     http::{HeaderName, StatusCode, Request},
     response::IntoResponse,
     serve,
+    middleware::from_fn_with_state,
 };
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -23,6 +24,8 @@ use tokio::net::TcpListener;
 
 use crate::config::Config;
 use crate::http::handlers::{health_check, process_image, convert_image_format};
+
+pub mod middleware;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ServerConfig {
@@ -47,11 +50,12 @@ fn default_write_timeout() -> u64 { 30 }
 fn default_concurrency() -> usize { 4 }
 fn default_max_body_size() -> usize { 10 * 1024 * 1024 }
 
-pub fn create_router() -> Router<Arc<Config>> {
+pub fn create_router(config: Arc<Config>) -> Router<Arc<Config>> {
     Router::new()
         .route("/", get(health_check))
         .route("/process", post(process_image))
         .route("/convert", post(convert_image_format))
+        //.layer(from_fn_with_state(Arc::clone(&config), middleware::authenticate))
         .layer((
             CompressionLayer::new(),
             RequestBodyLimitLayer::new(10 * 1024 * 1024),
@@ -104,7 +108,7 @@ pub async fn run_server(config: Arc<Config>) -> Result<(), Box<dyn std::error::E
         .parse()
         .expect("Failed to parse address");
 
-    let app = create_router().with_state(config);
+    let app = create_router(Arc::clone(&config)).with_state(config);
     info!("Starting server on {}", addr);
     
     let listener = TcpListener::bind(addr).await?;
