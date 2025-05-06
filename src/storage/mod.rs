@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use anyhow::Result;
 use cached::proc_macro::cached;
-use cached::SizedCache;
 use sha2::{Sha256, Digest};
 use std::fs;
 use std::io::Read;
@@ -45,8 +44,8 @@ pub fn init_storage_dirs(temp_dir: &Path) -> Result<()> {
 
 // Cache for storing operation results
 #[cached(
-    type = "SizedCache<String, Option<PathBuf>>",
-    create = "{ SizedCache::with_size(100) }",
+    size = 100,
+    key = "String",
     convert = r#"{ format!("{}:{}:{}", _image_path.to_string_lossy(), _operation, _params) }"#
 )]
 pub fn get_cached_result(_image_path: PathBuf, _operation: &str, _params: &str) -> Option<PathBuf> {
@@ -55,8 +54,8 @@ pub fn get_cached_result(_image_path: PathBuf, _operation: &str, _params: &str) 
 
 // Cache for storing file metadata hashes
 #[cached(
-    type = "SizedCache<String, Option<String>>",
-    create = "{ SizedCache::with_size(100) }",
+    size = 100,
+    key = "String",
     convert = r#"{ format!("{}:{}:{}", _filename, _content_length, _content_type) }"#
 )]
 pub fn get_metadata_hash(_filename: String, _content_length: usize, _content_type: String) -> Option<String> {
