@@ -1,5 +1,5 @@
 use crate::http::errors::AppError;
-use image::{DynamicImage, imageops::FilterType, GenericImage, ImageFormat};
+use image::{DynamicImage, imageops::FilterType, GenericImage, ImageFormat, RgbaImage, ColorType, GenericImageView};
 use std::io::Cursor;
 use crate::image::params::{ResizeParams, RotateParams, CropParams, FormatConversionParams};
 
@@ -106,7 +106,7 @@ fn test_overlay() {
 fn test_convert_format() {
     let img = RgbaImage::new(100, 100);
     let dynamic_img = DynamicImage::ImageRgba8(img);
-    let params = FormatConversionParams { format: "png".to_string() };
+    let params = FormatConversionParams { format: "png".to_string(), quality: Some(90) };
     let converted_img = convert_format(dynamic_img.clone(), &params).unwrap();
     
     assert_eq!(converted_img.color(), ColorType::Rgba8); // Check the color type

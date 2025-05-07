@@ -2,10 +2,11 @@ use serde::Deserialize;
 use anyhow::Result;
 use hmac::{Hmac, Mac};
 use sha2::{Sha256, Digest};
-use rand::{Rng, distributions::Alphanumeric};
+use rand::{Rng, thread_rng};
+use rand::distributions::Alphanumeric;
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Debug, Deserialize, Default, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SecurityConfig {
     #[serde(default = "default_key")]
     pub key: Option<String>,
@@ -13,6 +14,16 @@ pub struct SecurityConfig {
     pub salt: Option<String>,
     #[serde(default = "default_allowed_origins")]
     pub allowed_origins: Vec<String>,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            key: None,
+            salt: None,
+            allowed_origins: default_allowed_origins(),
+        }
+    }
 }
 
 // Default implementations
@@ -38,8 +49,8 @@ impl SecurityConfig {
 
     pub fn generate_api_key(&mut self) -> String {
         if self.key.is_none() || self.key.as_ref().unwrap().is_empty() {
-            let generated_key: String = rand::thread_rng()
-                .sample_iter(&Alphanumeric)
+            let generated_key: String = thread_rng()
+                .sample_iter(Alphanumeric)
                 .take(30)
                 .map(char::from)
                 .collect();

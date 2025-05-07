@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use clap::ArgMatches;
 use crate::server::ServerConfig;
 use crate::security::SecurityConfig;

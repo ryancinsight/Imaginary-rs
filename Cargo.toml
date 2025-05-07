@@ -47,11 +47,11 @@ serde_json = "1.0.140"
 # Utility
 sha2 = "0.10.9"
 hmac = "0.12.1"
-rand = "0.9.1"
+rand = "0.8.5"  # Downgraded from 0.9.1 for compatibility
 http = "1.3.1"
 
 # Performance optimizations
-cached = "0.55.1"
+cached = "0.44.0"  # Downgraded from 0.55.1 for compatibility
 hex = "0.4.3"
 toml = "0.8.22"
 

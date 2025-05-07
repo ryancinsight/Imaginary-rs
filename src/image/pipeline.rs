@@ -50,7 +50,7 @@ pub fn process_image(params: impl Validate) -> Result<(), ImageError> {
     let image = DynamicImage::new_rgb8(800, 600);
 
     // Process the image through the pipeline
-    let processed_image = pipeline.process(image);
+    let _processed_image = pipeline.process(image);
 
     // Save or use the processed image (this is just a placeholder)
     // processed_image.save("output.png")?;
