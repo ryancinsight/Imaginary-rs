@@ -129,15 +129,66 @@ pub struct SmartCropParams {
 impl Validate for SmartCropParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            Err(ImageError::InvalidDimensions("Width and height must be greater than zero.".to_string()))
-        } else if let Some(quality) = self.quality {
-            if quality > 100 {
-                Err(ImageError::InvalidQuality("Quality must be between 0 and 100.".to_string()))
-            } else {
-                Ok(())
-            }
-        } else {
-            Ok(())
+            return Err(ImageError::InvalidDimensions(
+                "Width and height for smart crop must be greater than 0".to_string(),
+            ));
         }
+        if let Some(q) = self.quality {
+            if q > 100 {
+                return Err(ImageError::InvalidQuality(
+                    "Quality must be between 0 and 100".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AdjustBrightnessParams {
+    #[serde(default)]
+    pub value: i32,
+}
+
+impl Validate for AdjustBrightnessParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AdjustContrastParams {
+    #[serde(default)]
+    pub value: f32,
+}
+
+impl Validate for AdjustContrastParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct BlurParams {
+    pub sigma: f32,
+    #[serde(default)]
+    pub minampl: Option<f32>,
+}
+
+impl Validate for BlurParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.sigma <= 0.0 {
+            return Err(ImageError::InvalidParameters(
+                "Blur sigma must be greater than 0".to_string(),
+            ));
+        }
+        if let Some(minampl_val) = self.minampl {
+            if minampl_val < 0.0 {
+                return Err(ImageError::InvalidParameters(
+                    "Blur minampl cannot be negative".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 }

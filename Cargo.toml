@@ -9,8 +9,8 @@ repository = "https://github.com/ryancinsight/imaginary-rs"
 
 [dependencies]
 # Web framework
-axum = {version = "0.8.4", features= ["http2","multipart"]}
-tower-http = { version = "0.6.2", features = [
+axum = {version = "0.7.5", features= ["http2", "multipart", "json"]}
+tower-http = { version = "0.5.2", features = [
     "cors", 
     "trace",
     "compression-full",
@@ -19,9 +19,9 @@ tower-http = { version = "0.6.2", features = [
     "catch-panic",
     "request-id",
     "sensitive-headers",
-    "validate-request",
-    "trace"
+    "validate-request"
 ]}
+tower = { version = "0.4", features = ["util", "timeout"] }
 
 # Image processing
 image = "0.25.5"
@@ -43,6 +43,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Utility
 sha2 = "0.10.9"

@@ -1,8 +1,7 @@
 use std::sync::Arc;
-use crate::config::{Config, cli};
-use tracing::{info, error};
+use crate::config::cli;
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use axum::response::IntoResponse;
 mod storage;
 mod security;   
 mod config;
@@ -10,7 +9,6 @@ mod server;
 mod http;
 mod image;
 mod utils;
-use crate::security::SecurityConfig;
 use crate::http::errors::AppError;
 use crate::http::info::AppInfo;
 
@@ -28,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli::build_cli().get_matches();
 
     // Load configuration
-    let mut config = config::load_config(&matches)?;
+    let config = config::load_config(&matches)?;
 
     // Generate a new API key if not already set
     //let mut security_config = SecurityConfig::default();

@@ -44,6 +44,9 @@ pub enum ImageError {
     
     #[error("Invalid quality: {0}")]
     InvalidQuality(String),
+
+    #[error("Invalid parameters: {0}")]
+    InvalidParameters(String),
 }
 
 impl IntoResponse for AppError {
@@ -122,6 +125,10 @@ impl IntoResponse for ImageError {
             ImageError::InvalidQuality(msg) => (
                 StatusCode::BAD_REQUEST,
                 format!("Invalid quality: {}", msg),
+            ),
+            ImageError::InvalidParameters(msg) => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid parameters: {}", msg),
             ),
         };
 
