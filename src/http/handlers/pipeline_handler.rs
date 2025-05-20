@@ -1,3 +1,13 @@
+//! HTTP handler for the /pipeline endpoint.
+//!
+//! Accepts multipart/form-data with an image and a JSON array of operations.
+//! Applies the operations in sequence and returns the processed image.
+//!
+//! Example usage:
+//!   POST /pipeline
+//!   - image: file
+//!   - operations: '[{"operation": "resize", "params": {"width": 200, "height": 200}}]'
+
 use std::io::Cursor;
 use std::sync::Arc;
 
@@ -20,7 +30,13 @@ use crate::{
 
 const MAX_IMAGE_SIZE: usize = 10 * 1024 * 1024; // 10 MB, consistent with server config default
 
-
+/// Handles POST /pipeline
+///
+/// Accepts multipart/form-data with fields:
+/// - `image`: the image file
+/// - `operations`: JSON array of operation specs
+///
+/// Returns the processed image as binary data.
 pub async fn process_pipeline(
     State(config): State<Arc<Config>>,
     mut multipart: Multipart,

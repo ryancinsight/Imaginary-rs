@@ -24,7 +24,9 @@ tower-http = { version = "0.5.2", features = [
 tower = { version = "0.4", features = ["util", "timeout"] }
 
 # Image processing
-image = "0.25.5"
+image = "0.24.9"
+imageproc = "0.23.0"  # For advanced image processing like text rendering
+rusttype = "0.9.3"    # Font rendering for watermarks
 
 # Runtime and async
 tokio = { version = "1.45.0", features = ["full"] }

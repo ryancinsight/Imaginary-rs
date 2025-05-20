@@ -67,21 +67,43 @@ impl Validate for CropParams {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct WatermarkParams {
+    #[serde(default)]
+    pub text: String,
     #[serde(default = "default_opacity")]
     pub opacity: f32,
     #[serde(default)]
     pub position: WatermarkPosition,
+    #[serde(default = "default_font_size")]
+    pub font_size: u32,
+    #[serde(default = "default_color")]
+    pub color: [u8; 3],  // RGB color
+    #[serde(default)]
+    pub x: Option<u32>,  // If None, use position for automatic placement
+    #[serde(default)]
+    pub y: Option<u32>,
 }
 
 fn default_opacity() -> f32 { 0.5 }
+fn default_font_size() -> u32 { 24 }
+fn default_color() -> [u8; 3] { [255, 255, 255] }  // White
 
 impl Validate for WatermarkParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.opacity < 0.0 || self.opacity > 1.0 {
-            Err(ImageError::InvalidOpacity("Opacity must be between 0.0 and 1.0.".to_string()))
-        } else {
-            Ok(())
+            return Err(ImageError::InvalidOpacity("Opacity must be between 0.0 and 1.0".to_string()));
         }
+        if self.text.is_empty() {
+            return Err(ImageError::InvalidParameters("Watermark text cannot be empty".to_string()));
+        }
+        if self.font_size == 0 {
+            return Err(ImageError::InvalidParameters("Font size must be > 0".to_string()));
+        }
+        if let (Some(x), Some(y)) = (self.x, self.y) {
+            if x == 0 && y == 0 {
+                return Err(ImageError::InvalidParameters("Both x and y coordinates cannot be 0".to_string()));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -129,16 +151,7 @@ pub struct SmartCropParams {
 impl Validate for SmartCropParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            return Err(ImageError::InvalidDimensions(
-                "Width and height for smart crop must be greater than 0".to_string(),
-            ));
-        }
-        if let Some(q) = self.quality {
-            if q > 100 {
-                return Err(ImageError::InvalidQuality(
-                    "Quality must be between 0 and 100".to_string(),
-                ));
-            }
+            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
         }
         Ok(())
     }
@@ -188,6 +201,79 @@ impl Validate for BlurParams {
                     "Blur minampl cannot be negative".to_string(),
                 ));
             }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ThumbnailParams {
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+}
+
+impl Validate for ThumbnailParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ExtractParams {
+    #[serde(default)]
+    pub x: u32,
+    #[serde(default)]
+    pub y: u32,
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+}
+
+impl Validate for ExtractParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ZoomParams {
+    #[serde(default = "default_zoom_factor")]
+    pub factor: f32,
+}
+
+fn default_zoom_factor() -> f32 { 1.0 }
+
+impl Validate for ZoomParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.factor <= 0.0 {
+            return Err(ImageError::InvalidParameters("Zoom factor must be > 0".to_string()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct WatermarkImageParams {
+    #[serde(default = "default_opacity")]
+    pub opacity: f32,
+    #[serde(default)]
+    pub position: WatermarkPosition,
+    // In a real implementation, you would also have a field for the watermark image itself (e.g., as a path or bytes)
+}
+
+impl Validate for WatermarkImageParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.opacity < 0.0 || self.opacity > 1.0 {
+            return Err(ImageError::InvalidOpacity("Opacity must be between 0.0 and 1.0".to_string()));
         }
         Ok(())
     }

@@ -1,4 +1,9 @@
-use serde::Deserialize;
+//! Types and enums for describing image processing pipelines and supported operations.
+//!
+//! This module defines the data structures used to specify a sequence of image operations (pipeline)
+//! and the set of operations supported by the pipeline executor.
+
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 // Add other necessary imports if/when they become clear.
@@ -6,16 +11,21 @@ use serde_json::Value;
 // but we\'ll handle dynamic dispatch first.
 // use super::params::*; // Example if params were directly embedded
 
+/// Specification for a single operation in an image processing pipeline.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PipelineOperationSpec {
+    /// The operation to perform.
     pub operation: SupportedOperation,
+    /// If true, ignore failure of this operation and continue the pipeline.
     #[serde(default)]
     pub ignore_failure: bool,
+    /// Parameters for the operation (operation-specific, dynamic).
     #[serde(default)]
     pub params: Value, // Using serde_json::Value for dynamic params
 }
 
+/// Enum of all supported image operations for the pipeline.
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum SupportedOperation {

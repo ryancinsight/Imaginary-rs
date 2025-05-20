@@ -8,16 +8,25 @@
 <body>
     <h1>Test Image Manipulation Pipeline (/pipeline)</h1>
     <!--
-    Supported operation names (case-sensitive):
-      crop, smartCrop, resize, enlarge, extract, rotate, autorotate, flip, flop, thumbnail, zoom, convert, watermark, watermarkImage, blur, grayscale, adjustBrightness, adjustContrast, sharpen
+    Supported operation names (case-sensitive, grouped by module):
+      Transform: crop, smartCrop, resize, enlarge, extract, rotate, autorotate, flip, flop, thumbnail, zoom
+      Color: grayscale, blur, adjustBrightness, adjustContrast, sharpen
+      Format: convert
+      Overlay: overlay, drawText
+      Watermark: watermark, watermarkImage
+    
+    See the README for full documentation: https://github.com/your-org/imaginary-rs#image-operations
     -->
     <form id="uploadForm" action="http://localhost:8080/pipeline" method="POST" enctype="multipart/form-data">
         <label for="image">Select image:</label>
         <input type="file" id="image" name="image" required><br><br>
         <label for="operations">Pipeline Operations (JSON array):</label><br>
-        <textarea id="operations" name="operations" rows="8" cols="60">[
-  {"operation": "resize", "params": {"width": 200, "height": 200}},
-  {"operation": "grayscale", "params": {}}
+        <textarea id="operations" name="operations" rows="12" cols="60">[
+  {"operation": "resize", "params": {"width": 300, "height": 300}},
+  {"operation": "grayscale", "params": {}},
+  {"operation": "blur", "params": {"sigma": 2.0}},
+  {"operation": "watermark", "params": {"text": "Imaginary-rs", "opacity": 0.7, "position": "BottomRight", "font_size": 24, "color": [0, 128, 255]}},
+  {"operation": "convert", "params": {"format": "jpeg", "quality": 85}}
 ]</textarea><br><br>
         <button type="submit">Upload and Process</button>
     </form>

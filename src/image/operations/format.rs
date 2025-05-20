@@ -1,0 +1,53 @@
+//! Format operations for images.
+//!
+//! This module provides functions for format conversion and autorotation.
+
+use crate::http::errors::AppError;
+use image::{DynamicImage, ImageFormat, GenericImageView};
+use std::io::Cursor;
+use crate::image::params::FormatConversionParams;
+
+/// Convert the image to a different format (e.g., png, jpeg).
+pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> Result<DynamicImage, AppError> {
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+    image.write_to(&mut cursor, ImageFormat::from_extension(&params.format).unwrap())
+        .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
+    image::load_from_memory(&buffer)
+        .map_err(|e| AppError::ImageProcessingError(e.to_string()))
+}
+
+/// Autorotate an image based on EXIF orientation metadata (currently a no-op).
+pub fn autorotate(image: DynamicImage) -> DynamicImage {
+    image
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{DynamicImage, ImageBuffer, Rgba, ColorType, GenericImageView};
+    use crate::image::params::FormatConversionParams;
+
+    fn create_test_image(width: u32, height: u32) -> DynamicImage {
+        DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            width,
+            height,
+            Rgba([255u8, 0u8, 0u8, 255u8]),
+        ))
+    }
+
+    #[test]
+    fn test_convert_format() {
+        let img = create_test_image(100, 100);
+        let params = FormatConversionParams { format: "png".to_string(), quality: Some(90) };
+        let converted_img = convert_format(img, &params).unwrap();
+        assert_eq!(converted_img.color(), ColorType::Rgba8);
+    }
+
+    #[test]
+    fn test_autorotate() {
+        let img = create_test_image(100, 100);
+        let rotated = autorotate(img);
+        assert_eq!(rotated.dimensions(), (100, 100));
+    }
+} 
