@@ -6,21 +6,52 @@ use image::{DynamicImage, GenericImageView};
 use crate::image::params::{BlurParams};
 
 /// Convert the image to grayscale.
+///
+/// # Arguments
+/// * `image` - The input image to convert.
+///
+/// # Returns
+/// A new `DynamicImage` in grayscale.
+///
+/// # Examples
+/// # use image::DynamicImage;
+/// # let img = DynamicImage::new_rgb8(100, 100);
+/// let gray = grayscale(img);
 pub fn grayscale(image: DynamicImage) -> DynamicImage {
     image.to_luma8().into()
 }
 
 /// Adjust the brightness of the image by the given value.
+///
+/// # Arguments
+/// * `image` - The input image to adjust.
+/// * `value` - The brightness adjustment value (positive or negative).
+///
+/// # Returns
+/// A new `DynamicImage` with adjusted brightness.
 pub fn adjust_brightness(image: DynamicImage, value: i32) -> DynamicImage {
     image.brighten(value)
 }
 
 /// Adjust the contrast of the image by the given value.
+///
+/// # Arguments
+/// * `image` - The input image to adjust.
+/// * `value` - The contrast adjustment value (positive or negative).
+///
+/// # Returns
+/// A new `DynamicImage` with adjusted contrast.
 pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
     image.adjust_contrast(value)
 }
 
 /// Sharpen the image using a fixed 3x3 kernel.
+///
+/// # Arguments
+/// * `image` - The input image to sharpen.
+///
+/// # Returns
+/// A new `DynamicImage` sharpened using a 3x3 kernel.
 pub fn sharpen(image: DynamicImage) -> DynamicImage {
     let sharpen_kernel: [f32; 9] = [-1.0, -1.0, -1.0,
                                     -1.0,  9.0, -1.0,
@@ -29,6 +60,13 @@ pub fn sharpen(image: DynamicImage) -> DynamicImage {
 }
 
 /// Blur the image using the specified sigma value.
+///
+/// # Arguments
+/// * `image` - The input image to blur.
+/// * `params` - The blur parameters (sigma, minampl).
+///
+/// # Returns
+/// A new `DynamicImage` blurred by the specified sigma.
 pub fn blur(image: DynamicImage, params: &BlurParams) -> DynamicImage {
     if params.minampl.is_some() {
         tracing::warn!("Blur operation: 'minampl' parameter is provided but not currently used by the image crate's basic blur. Only sigma is applied.");

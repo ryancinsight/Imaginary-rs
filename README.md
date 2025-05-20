@@ -72,5 +72,56 @@ cargo run
 5. Add tests.
 6. Document the operation in this README.
 
+## Image Operations: Modular Structure
+
+Imaginary-rs organizes all image processing operations into a deep, maintainable vertical module structure:
+
+| Module      | Operations                                                                 |
+|-------------|----------------------------------------------------------------------------|
+| `transform` | `resize`, `rotate`, `crop`, `flip_horizontal`, `flip_vertical`, `enlarge`, `extract`, `zoom`, `smart_crop`, `thumbnail` |
+| `color`     | `grayscale`, `blur`, `adjust_brightness`, `adjust_contrast`, `sharpen`     |
+| `format`    | `convert_format`, `autorotate`                                             |
+| `overlay`   | `overlay`, `draw_text`                                                     |
+| `watermark` | `watermark`, `watermark_image`                                             |
+
+All common operations are re-exported at the top level of the `operations` module for ergonomic use.
+
+### Example: Using the Modular API in Rust
+
+```rust
+use imaginary::image::operations::{resize, grayscale, watermark, convert_format};
+use imaginary::image::params::{ResizeParams, WatermarkParams, FormatConversionParams};
+
+let img = ...; // Load a DynamicImage
+let img = resize(img, &ResizeParams { width: 300, height: 300 });
+let img = grayscale(img);
+let img = watermark(img, &WatermarkParams {
+    text: "Imaginary-rs".to_string(),
+    opacity: 0.7,
+    position: WatermarkPosition::BottomRight,
+    font_size: 24,
+    color: [0, 128, 255],
+    x: None,
+    y: None,
+})?;
+let img = convert_format(img, &FormatConversionParams {
+    format: "jpeg".to_string(),
+    quality: Some(85),
+})?;
+```
+
+### Example: Using the HTTP API
+
+Send a POST request to `/pipeline` with a multipart form containing:
+- `image`: the image file
+- `operations`: a JSON array of operations (see `test.html` for an example)
+
+### Contributor Guide
+
+- Each operation is implemented in its own submodule under [`src/image/operations/`](src/image/operations/).
+- When adding new operations, create a new submodule if needed and keep files under 300 lines.
+- Add unit tests in the same file as the operation.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
 ---
 MIT License.

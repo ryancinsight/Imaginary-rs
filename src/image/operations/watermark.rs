@@ -9,7 +9,30 @@ use crate::image::params::{WatermarkParams, WatermarkImageParams, WatermarkPosit
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
-/// Returns a new DynamicImage with the watermark applied, or an error if the font cannot be loaded.
+///
+/// # Arguments
+/// * `image` - The input image to watermark.
+/// * `params` - The watermark parameters (text, opacity, position, font size, color, x, y).
+///
+/// # Returns
+/// A new `DynamicImage` with the watermark applied, or an error if the font cannot be loaded.
+///
+/// # Examples
+/// # use image::DynamicImage;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let img = DynamicImage::new_rgb8(100, 100);
+/// let wm_params = WatermarkParams {
+///     text: "Sample".to_string(),
+///     opacity: 0.5,
+///     position: WatermarkPosition::BottomRight,
+///     font_size: 24,
+///     color: [255, 255, 255],
+///     x: None,
+///     y: None,
+/// };
+/// let watermarked = watermark(&img, &wm_params)?;
+/// # Ok(())
+/// # }
 pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<DynamicImage, String> {
     // Always operate on RGBA8
     let mut rgba_image = image.to_rgba8();
@@ -54,6 +77,13 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
 }
 
 /// Apply a watermark image to the image. (Not yet implemented)
+///
+/// # Arguments
+/// * `image` - The input image to watermark.
+/// * `params` - The watermark image parameters.
+///
+/// # Returns
+/// The input `DynamicImage` (no-op).
 pub fn watermark_image(image: DynamicImage, _params: &WatermarkImageParams) -> DynamicImage {
     image
 } 

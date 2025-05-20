@@ -8,6 +8,18 @@ use std::io::Cursor;
 use crate::image::params::FormatConversionParams;
 
 /// Convert the image to a different format (e.g., png, jpeg).
+///
+/// # Arguments
+/// * `image` - The input image to convert.
+/// * `params` - The format conversion parameters (format, quality).
+///
+/// # Returns
+/// A new `DynamicImage` in the specified format, or an error if conversion fails.
+///
+/// # Examples
+/// # use image::DynamicImage;
+/// # let img = DynamicImage::new_rgb8(100, 100);
+/// let converted = convert_format(img, &FormatConversionParams { format: "jpeg".to_string(), quality: Some(85) });
 pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> Result<DynamicImage, AppError> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
@@ -18,6 +30,12 @@ pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> R
 }
 
 /// Autorotate an image based on EXIF orientation metadata (currently a no-op).
+///
+/// # Arguments
+/// * `image` - The input image to autorotate.
+///
+/// # Returns
+/// The input `DynamicImage` (no-op).
 pub fn autorotate(image: DynamicImage) -> DynamicImage {
     image
 }
