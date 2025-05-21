@@ -50,6 +50,8 @@ use std::convert::Infallible;
 use tokio::net::TcpListener;
 use crate::http::handlers::legacy_process_handler::process_image;
 use crate::http::handlers::pipeline_handler::process_pipeline;
+use tokio::sync::Semaphore;
+use crate::server::middleware::concurrency_limit_middleware;
 
 pub mod middleware;
 
@@ -108,7 +110,7 @@ async fn outer_error_handler(err: BoxError) -> Response<Body> {
     }
 }
 
-pub async fn run_server(config: Arc<Config>) -> Result<(), AppError> {
+pub async fn run_server(config: Arc<Config>, semaphore: Option<Arc<Semaphore>>) -> Result<(), AppError> {
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .map_err(|_| AppError::InternalServerError("Failed to parse address".to_string()))?;
@@ -120,7 +122,31 @@ pub async fn run_server(config: Arc<Config>) -> Result<(), AppError> {
     let listener = TcpListener::from_std(std_listener)
         .map_err(|e| AppError::InternalServerError(format!("Failed to convert std listener to tokio listener: {}", e)))?;
 
-    let app_service_inner = create_router(Arc::clone(&config));
+    let common_middleware = ServiceBuilder::new()
+        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid::default()))
+        .layer(TraceLayer::new_for_http()
+            .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
+            .on_request(DefaultOnRequest::new().level(Level::INFO))
+            .on_response(DefaultOnResponse::new().level(Level::INFO).latency_unit(tower_http::LatencyUnit::Micros)))
+        .layer(CorsLayer::new().allow_origin(Any))
+        .layer(CompressionLayer::new())
+        .layer(CatchPanicLayer::new());
+
+    let mut router = Router::new()
+        .route("/health", get(health_check))
+        .route("/process", post(process_image))
+        .route("/pipeline", post(process_pipeline))
+        .layer(common_middleware)
+        .with_state(config.clone());
+
+    if let Some(semaphore) = semaphore {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            semaphore,
+            concurrency_limit_middleware,
+        ));
+    }
+
+    let app_service_inner = BoxCloneService::new(router);
     let timeout_duration = config.server.read_timeout;
 
     // Explicitly compose Timeout and HandleError services
@@ -128,18 +154,14 @@ pub async fn run_server(config: Arc<Config>) -> Result<(), AppError> {
         app_service_inner, // This is BoxCloneService<..., Infallible>
         Duration::from_secs(timeout_duration),
     );
-    // Error type of timed_service should be tower::timeout::error::Elapsed (which is a BoxError)
 
     let final_service_logic = axum::error_handling::HandleError::new(
         timed_service,
         outer_error_handler, // Takes BoxError, returns Response<Body>
     );
-    // Error type of final_service_logic should now be Infallible
-    
     let boxed_final_service = BoxCloneService::new(final_service_logic);
 
     info!("Starting server on {}", addr);
-    
     axum::serve(listener, boxed_final_service.into_make_service())
         .await
         .map_err(|e| AppError::InternalServerError(format!("Server failed: {}", e)))?;

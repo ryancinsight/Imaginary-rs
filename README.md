@@ -123,5 +123,9 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - Only public, user-facing operations should be re-exported at the top level of the `operations` module.
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
+## Command Line Options
+
+- `--concurrency <N>`: Maximum number of concurrent HTTP requests to process (0 = unlimited, default: 0). Matches the original imaginary's concurrency option.
+
 ---
 MIT License.

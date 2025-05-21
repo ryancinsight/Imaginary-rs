@@ -6,7 +6,7 @@ use image::DynamicImage;
 use crate::image::params::{BlurParams};
 use image::GenericImageView;
 
-/// Convert the image to grayscale.
+/// Convert an image to grayscale.
 ///
 /// # Arguments
 /// * `image` - The input image to convert.
@@ -22,7 +22,7 @@ pub fn grayscale(image: DynamicImage) -> DynamicImage {
     image.to_luma8().into()
 }
 
-/// Adjust the brightness of the image by the given value.
+/// Adjust the brightness of an image by the given value.
 ///
 /// # Arguments
 /// * `image` - The input image to adjust.
@@ -34,7 +34,7 @@ pub fn adjust_brightness(image: DynamicImage, value: i32) -> DynamicImage {
     image.brighten(value)
 }
 
-/// Adjust the contrast of the image by the given value.
+/// Adjust the contrast of an image by the given value.
 ///
 /// # Arguments
 /// * `image` - The input image to adjust.
@@ -46,7 +46,7 @@ pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
     image.adjust_contrast(value)
 }
 
-/// Sharpen the image using a fixed 3x3 kernel.
+/// Sharpen the image using a simple kernel.
 ///
 /// # Arguments
 /// * `image` - The input image to sharpen.
@@ -60,7 +60,7 @@ pub fn sharpen(image: DynamicImage) -> DynamicImage {
     image.filter3x3(&sharpen_kernel)
 }
 
-/// Blur the image using the specified sigma value.
+/// Apply a Gaussian blur to the image with the given parameters.
 ///
 /// # Arguments
 /// * `image` - The input image to blur.

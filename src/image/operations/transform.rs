@@ -5,31 +5,12 @@
 use image::{DynamicImage, imageops::FilterType, GenericImageView};
 use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams, Validate};
 
-/// Resize the image to the exact width and height specified in `params` using Lanczos3 filter.
-///
-/// # Arguments
-/// * `image` - The input image to resize.
-/// * `params` - The resize parameters (width, height).
-///
-/// # Returns
-/// A new `DynamicImage` resized to the specified dimensions.
-///
-/// # Examples
-/// # use image::DynamicImage;
-/// # let img = DynamicImage::new_rgb8(100, 100);
-/// let resized = resize(img, &ResizeParams { width: 100, height: 100 });
+/// Resize the image to the given dimensions.
 pub fn resize(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
     image.resize_exact(params.width, params.height, FilterType::Lanczos3)
 }
 
-/// Rotate the image by the specified degrees (90, 180, 270 supported).
-///
-/// # Arguments
-/// * `image` - The input image to rotate.
-/// * `params` - The rotation parameters (degrees).
-///
-/// # Returns
-/// A new `DynamicImage` rotated by the specified degrees.
+/// Rotate the image by the given degrees.
 pub fn rotate(image: DynamicImage, params: &RotateParams) -> DynamicImage {
     match params.degrees {
         90.0 => image.rotate90(),
@@ -39,48 +20,22 @@ pub fn rotate(image: DynamicImage, params: &RotateParams) -> DynamicImage {
     }
 }
 
-/// Crop the image to the rectangle specified in `params`.
-///
-/// # Arguments
-/// * `image` - The input image to crop.
-/// * `params` - The crop parameters (x, y, width, height).
-///
-/// # Returns
-/// A new `DynamicImage` cropped to the specified rectangle.
+/// Crop the image to the given rectangle.
 pub fn crop(image: DynamicImage, params: &CropParams) -> DynamicImage {
     image.crop_imm(params.x, params.y, params.width, params.height)
 }
 
 /// Flip the image horizontally.
-///
-/// # Arguments
-/// * `image` - The input image to flip.
-///
-/// # Returns
-/// A new `DynamicImage` flipped horizontally.
 pub fn flip_horizontal(image: DynamicImage) -> DynamicImage {
     image.fliph()
 }
 
 /// Flip the image vertically.
-///
-/// # Arguments
-/// * `image` - The input image to flip.
-///
-/// # Returns
-/// A new `DynamicImage` flipped vertically.
 pub fn flip_vertical(image: DynamicImage) -> DynamicImage {
     image.flipv()
 }
 
-/// Enlarge the image to the given width and height, only if the new size is larger.
-///
-/// # Arguments
-/// * `image` - The input image to enlarge.
-/// * `params` - The resize parameters (width, height).
-///
-/// # Returns
-/// A new `DynamicImage` enlarged to the specified dimensions, or the original if not larger.
+/// Enlarge the image using the given resize parameters.
 pub fn enlarge(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
     params.validate().expect("Invalid enlarge params");
     let (orig_w, orig_h) = image.dimensions();
@@ -91,14 +46,7 @@ pub fn enlarge(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
     }
 }
 
-/// Extract (crop) a region from the image at (x, y) with the given width and height.
-///
-/// # Arguments
-/// * `image` - The input image to extract from.
-/// * `params` - The extract parameters (x, y, width, height).
-///
-/// # Returns
-/// A new `DynamicImage` containing the extracted region.
+/// Extract a subregion from the image.
 pub fn extract(image: DynamicImage, params: &ExtractParams) -> DynamicImage {
     params.validate().expect("Invalid extract params");
     let (img_w, img_h) = image.dimensions();
@@ -109,14 +57,7 @@ pub fn extract(image: DynamicImage, params: &ExtractParams) -> DynamicImage {
     image.crop_imm(x, y, w, h)
 }
 
-/// Zoom (scale) an image by a given factor (>0).
-///
-/// # Arguments
-/// * `image` - The input image to zoom.
-/// * `params` - The zoom parameters (factor).
-///
-/// # Returns
-/// A new `DynamicImage` zoomed by the specified factor.
+/// Zoom into the image by the given factor.
 pub fn zoom(image: DynamicImage, params: &ZoomParams) -> DynamicImage {
     params.validate().expect("Invalid zoom params");
     let (orig_w, orig_h) = image.dimensions();
@@ -125,14 +66,7 @@ pub fn zoom(image: DynamicImage, params: &ZoomParams) -> DynamicImage {
     image.resize(new_w, new_h, FilterType::Lanczos3)
 }
 
-/// Smart crop an image to the given width and height (currently a center crop).
-///
-/// # Arguments
-/// * `image` - The input image to crop.
-/// * `params` - The smart crop parameters (width, height, quality).
-///
-/// # Returns
-/// A new `DynamicImage` smart-cropped to the specified dimensions.
+/// Perform a smart crop on the image using the given parameters.
 pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage {
     params.validate().expect("Invalid smart crop params");
     let (img_w, img_h) = image.dimensions();
@@ -143,14 +77,7 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     image.crop_imm(x, y, crop_w, crop_h)
 }
 
-/// Create a thumbnail of the image with the specified dimensions.
-///
-/// # Arguments
-/// * `image` - The input image to thumbnail.
-/// * `params` - The thumbnail parameters (width, height).
-///
-/// # Returns
-/// A new `DynamicImage` thumbnail.
+/// Create a thumbnail of the image with the given parameters.
 pub fn thumbnail(image: DynamicImage, params: &ThumbnailParams) -> DynamicImage {
     params.validate().expect("Invalid thumbnail params");
     image.thumbnail(params.width, params.height)

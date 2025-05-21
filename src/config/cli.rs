@@ -37,9 +37,10 @@ pub fn build_cli() -> Command {
         .arg(
             Arg::new("concurrency")
                 .long("concurrency")
-                .value_name("NUMBER")
-                .help("Sets the number of concurrent workers")
-                .default_value("4"),
+                .value_name("N")
+                .help("Maximum number of concurrent HTTP requests to process (0 = unlimited, default: 0)")
+                .value_parser(clap::value_parser!(u32))
+                .default_value("0"),
         )
         .arg(
             Arg::new("max-body-size")

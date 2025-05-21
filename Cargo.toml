@@ -58,6 +58,10 @@ cached = "0.44.0"  # Downgraded from 0.55.1 for compatibility
 hex = "0.4.3"
 toml = "0.8.22"
 
+# Parallel processing
+rayon = "1.10"
+num_cpus = "1.16"
+
 [dev-dependencies]
 pretty_assertions = "1.4"
 

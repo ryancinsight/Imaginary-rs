@@ -5,6 +5,7 @@ use tracing::info;
 use std::sync::Arc;
 use crate::config::Config;
 use crate::http::errors::AppError;
+use tokio::sync::Semaphore;
 
 #[allow(dead_code)] // For future logging middleware
 pub async fn log_request_and_errors(
@@ -51,4 +52,15 @@ pub async fn authenticate(
     }
 
     next.run(req).await
+}
+
+pub async fn concurrency_limit_middleware(
+    axum::extract::State(semaphore): axum::extract::State<Arc<Semaphore>>,
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let permit = semaphore.acquire().await;
+    let res = next.run(req).await;
+    drop(permit);
+    res
 }

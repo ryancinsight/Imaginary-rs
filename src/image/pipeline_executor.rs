@@ -22,21 +22,18 @@ pub fn execute_pipeline(
 ) -> Result<DynamicImage, AppError> {
     for spec in operations_spec {
         let operation_name = spec.operation.clone(); // For logging/error messages
+        tracing::info!(operation = ?operation_name, params = ?spec.params, "Starting operation");
         match execute_single_operation(image.clone(), &spec) {
             Ok(processed_image) => {
+                tracing::info!(operation = ?operation_name, "Operation succeeded");
                 image = processed_image;
             }
             Err(e) => {
+                tracing::error!(operation = ?operation_name, params = ?spec.params, error = %e, "Operation failed");
                 if spec.ignore_failure {
-                    tracing::warn!(
-                        "Operation {:?} failed but was ignored: {:?}",
-                        operation_name,
-                        e
-                    );
+                    tracing::warn!(operation = ?operation_name, "Operation failed but was ignored");
                 } else {
                     return Err(match e {
-                        // If it's already a well-formed AppError from deeper, pass it up.
-                        // Otherwise, wrap it with context.
                         ae @ AppError::BadRequest(_) |
                         ae @ AppError::ImageProcessingError(_) |
                         ae @ AppError::InvalidOperation(_) => ae,
@@ -49,6 +46,7 @@ pub fn execute_pipeline(
             }
         }
     }
+    tracing::info!("Pipeline execution complete");
     Ok(image)
 }
 
@@ -56,6 +54,7 @@ fn execute_single_operation(
     image: DynamicImage,
     spec: &PipelineOperationSpec,
 ) -> Result<DynamicImage, AppError> {
+    tracing::info!(operation = ?spec.operation, params = ?spec.params, "Executing single operation");
     match spec.operation {
         SupportedOperation::Resize => {
             let params: params::ResizeParams = parse_params(&spec.params, "Resize")?;
@@ -211,9 +210,9 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Pipeline failed at resize or blur: {:?}", result);
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (50, 50));
+        assert_eq!(processed.dimensions(), (50, 50), "Resize did not produce expected dimensions");
     }
 
     #[test]
@@ -239,9 +238,9 @@ mod tests {
         if result.is_err() {
             println!("Watermark pipeline error: {:?}", result.as_ref().err());
         }
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Watermark pipeline failed: {:?}", result);
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100)); // Should maintain original dimensions
+        assert_eq!(processed.dimensions(), (100, 100), "Watermark did not preserve dimensions");
     }
 
     #[test]
@@ -267,7 +266,7 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok()); // Should succeed because first failure is ignored
+        assert!(result.is_ok(), "Pipeline with ignored failures failed: {:?}", result);
     }
 
     #[test]
@@ -285,7 +284,7 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Pipeline error handling did not catch error for invalid resize");
     }
 
     #[test]
@@ -307,9 +306,9 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Watermark with custom position and color failed: {:?}", result);
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100));
+        assert_eq!(processed.dimensions(), (100, 100), "Custom watermark did not preserve dimensions");
     }
 
     #[test]
@@ -331,7 +330,7 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image.clone(), operations);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Watermark missing text should error");
 
         // Invalid color array (too short)
         let operations = vec![
@@ -350,7 +349,7 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image.clone(), operations);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Watermark with invalid color should error");
 
         // Negative font size
         let operations = vec![
@@ -369,7 +368,7 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Watermark with negative font size should error");
     }
 
     #[test]
@@ -402,8 +401,8 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Pipeline grayscale->watermark->convert failed: {:?}", result);
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100));
+        assert_eq!(processed.dimensions(), (100, 100), "Pipeline grayscale->watermark->convert did not preserve dimensions");
     }
 }

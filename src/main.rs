@@ -12,6 +12,9 @@ mod utils;
 use crate::http::errors::AppError;
 use crate::http::info::AppInfo;
 use crate::security::{ApiKey, ApiSalt};
+use tokio::sync::Semaphore;
+use axum::{middleware::Next, response::Response, http::Request, extract::State};
+use axum::body::Body;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -93,8 +96,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Start server (now passing Arc<Config> directly)
-    server::run_server(config).await?;
+    let concurrency: u32 = *matches.get_one::<u32>("concurrency").unwrap_or(&0);
+    let semaphore = if concurrency > 0 {
+        Some(Arc::new(Semaphore::new(concurrency as usize)))
+    } else {
+        None
+    };
 
+    // Pass the semaphore to the server
+    server::run_server(config, semaphore).await?;
     Ok(())
 }

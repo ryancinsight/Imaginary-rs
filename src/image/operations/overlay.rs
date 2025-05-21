@@ -4,8 +4,10 @@
 
 use crate::http::errors::AppError;
 use image::{DynamicImage, GenericImage, GenericImageView};
+use rusttype::{Font, Scale, point};
+use image::{Rgba, RgbaImage};
 
-/// Overlay one image on top of another at the specified (x, y) position.
+/// Overlay one image on top of another at the given coordinates.
 ///
 /// # Arguments
 /// * `image` - The base image to overlay onto.
@@ -27,19 +29,38 @@ pub(crate) fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, 
     Ok(img)
 }
 
-/// Draw text on the image at the specified position and font size (placeholder).
-///
-/// # Arguments
-/// * `image` - The input image to draw text on.
-/// * `text` - The text to draw.
-/// * `x` - The x-coordinate for the text position.
-/// * `y` - The y-coordinate for the text position.
-/// * `font_size` - The font size for the text.
-///
-/// # Returns
-/// A new `DynamicImage` with the text drawn (currently a no-op).
-pub(crate) fn draw_text(image: DynamicImage, _text: &str, _x: u32, _y: u32, _font_size: u32) -> DynamicImage {
-    image
+/// Draws text onto the image at the specified position and font size.
+pub(crate) fn draw_text(
+    image: DynamicImage,
+    text: &str,
+    x: u32,
+    y: u32,
+    font_size: u32,
+) -> DynamicImage {
+    let font_data = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts/DejaVuSans.ttf"));
+    let font = Font::try_from_bytes(font_data as &[u8]).expect("Failed to load font");
+    let scale = Scale::uniform(font_size as f32);
+    let color = Rgba([255, 255, 255, 255]);
+    let mut rgba = image.to_rgba8();
+    let v_metrics = font.v_metrics(scale);
+    let start = point(x as f32, y as f32 + v_metrics.ascent);
+    for glyph in font.layout(text, scale, start) {
+        if let Some(bb) = glyph.pixel_bounding_box() {
+            glyph.draw(|gx, gy, gv| {
+                let px = bb.min.x + gx as i32;
+                let py = bb.min.y + gy as i32;
+                if px >= 0 && py >= 0 && (px as u32) < rgba.width() && (py as u32) < rgba.height() {
+                    let pixel = rgba.get_pixel_mut(px as u32, py as u32);
+                    // Simple alpha blend
+                    for c in 0..3 {
+                        pixel[c] = ((1.0 - gv) * pixel[c] as f32 + gv * color[c] as f32) as u8;
+                    }
+                    pixel[3] = 255;
+                }
+            });
+        }
+    }
+    DynamicImage::ImageRgba8(rgba)
 }
 
 #[cfg(test)]
@@ -66,9 +87,40 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_text() {
-        let img = create_test_image(100, 100);
-        let result = draw_text(img, "Hello", 10, 10, 12);
-        assert_eq!(result.dimensions(), (100, 100));
+    fn test_draw_text_center() {
+        let img = create_test_image(200, 100);
+        let result = draw_text(img, "Hello", 80, 40, 24);
+        // Scan a 20x20 region around (100, 50) for any non-black, fully opaque pixel
+        let mut found = false;
+        for dx in 90..110 {
+            for dy in 40..60 {
+                let px = result.get_pixel(dx, dy);
+                if px[0] > 0 && px[3] == 255 {
+                    found = true;
+                    break;
+                }
+            }
+            if found { break; }
+        }
+        assert!(found, "No text pixels found in expected region");
+    }
+
+    #[test]
+    fn test_draw_text_top_left() {
+        let img = create_test_image(200, 100);
+        let result = draw_text(img, "A", 0, 0, 32);
+        // Scan a 20x20 region in the top-left for any non-black, fully opaque pixel
+        let mut found = false;
+        for dx in 0..20 {
+            for dy in 0..20 {
+                let px = result.get_pixel(dx, dy);
+                if px[0] > 0 && px[3] == 255 {
+                    found = true;
+                    break;
+                }
+            }
+            if found { break; }
+        }
+        assert!(found, "No text pixels found in expected region");
     }
 } 

@@ -48,6 +48,10 @@ Thank you for your interest in contributing! This project follows elite engineer
 - Keep pull requests focused and under 300 lines of code where possible.
 - Reference related issues or discussions in your PR description.
 
+## Command Line Options
+
+- `--concurrency <N>`: Maximum number of concurrent HTTP requests to process (0 = unlimited, default: 0). Matches the original imaginary's concurrency option.
+
 ---
 
 Thank you for helping make Imaginary-rs robust, maintainable, and a model of engineering excellence! 

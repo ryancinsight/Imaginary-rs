@@ -8,7 +8,7 @@ use std::io::Cursor;
 use crate::image::params::FormatConversionParams;
 use image::GenericImageView;
 
-/// Convert the image to a different format (e.g., png, jpeg).
+/// Convert the image to a different format with optional quality parameter.
 ///
 /// # Arguments
 /// * `image` - The input image to convert.
@@ -30,7 +30,7 @@ pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> R
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))
 }
 
-/// Autorotate an image based on EXIF orientation metadata (currently a no-op).
+/// Autorotate the image based on its EXIF orientation.
 ///
 /// # Arguments
 /// * `image` - The input image to autorotate.
