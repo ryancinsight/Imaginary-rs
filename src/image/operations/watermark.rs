@@ -84,6 +84,6 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
 ///
 /// # Returns
 /// The input `DynamicImage` (no-op).
-pub fn watermark_image(image: DynamicImage, _params: &WatermarkImageParams) -> DynamicImage {
+pub(crate) fn watermark_image(image: DynamicImage, _params: &WatermarkImageParams) -> DynamicImage {
     image
 } 

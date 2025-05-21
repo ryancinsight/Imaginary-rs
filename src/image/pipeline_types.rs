@@ -3,7 +3,7 @@
 //! This module defines the data structures used to specify a sequence of image operations (pipeline)
 //! and the set of operations supported by the pipeline executor.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 
 // Add other necessary imports if/when they become clear.

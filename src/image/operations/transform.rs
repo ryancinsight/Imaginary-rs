@@ -3,7 +3,7 @@
 //! This module provides functions for resizing, rotating, cropping, flipping, enlarging, extracting, zooming, smart cropping, and creating thumbnails.
 
 use image::{DynamicImage, imageops::FilterType, GenericImageView};
-use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, Validate, ExtractParams, ZoomParams, SmartCropParams};
+use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams, Validate};
 
 /// Resize the image to the exact width and height specified in `params` using Lanczos3 filter.
 ///
@@ -160,7 +160,7 @@ pub fn thumbnail(image: DynamicImage, params: &ThumbnailParams) -> DynamicImage 
 mod tests {
     use super::*;
     use image::{DynamicImage, ImageBuffer, Rgba};
-    use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams, Validate};
+    use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(

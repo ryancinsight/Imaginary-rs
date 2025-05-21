@@ -3,8 +3,8 @@ mod helpers;
 use helpers::{create_test_image, load_test_image, save_test_image};
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
-use image::GenericImageView;
 use serde_json::json;
+use image::GenericImageView;
 
 #[test]
 fn test_complete_pipeline_with_real_image() {

@@ -7,7 +7,7 @@ use std::fs;
 use std::io::Read;
 use tracing::info;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Default, Deserialize)]
 pub struct StorageConfig {
     #[serde(default = "default_temp_dir")]
     pub temp_dir: PathBuf,
@@ -15,20 +15,13 @@ pub struct StorageConfig {
     pub max_cache_size: usize,
 }
 
-fn default_temp_dir() -> PathBuf {
-    PathBuf::from("temp")
-}
-
-fn default_max_cache_size() -> usize {
-    1024 * 1024 * 1024 // 1GB
-}
-
-// Add storage utility functions
+#[allow(dead_code)] // For future cache management features
 pub fn ensure_temp_dir(path: &PathBuf) -> Result<()> {
     fs::create_dir_all(path)?;
     Ok(())
 }
 
+#[allow(dead_code)] // For future cache management features
 pub fn cleanup_temp_files(path: &PathBuf) -> Result<()> {
     if path.exists() {
         fs::remove_dir_all(path)?;
@@ -37,6 +30,7 @@ pub fn cleanup_temp_files(path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)] // For future cache management features
 pub fn init_storage_dirs(temp_dir: &Path) -> Result<()> {
     std::fs::create_dir_all(temp_dir)?;
     Ok(())
@@ -115,6 +109,7 @@ pub fn get_result(image_path: &PathBuf, operation: &str, params: &str) -> Option
 }
 
 // Cleanup old cache entries
+#[allow(dead_code)] // For future cache management features
 pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Result<()> {
     let now = std::time::SystemTime::now();
     
@@ -131,4 +126,12 @@ pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Re
     }
     
     Ok(())
+}
+
+fn default_temp_dir() -> PathBuf {
+    PathBuf::from("temp")
+}
+
+fn default_max_cache_size() -> usize {
+    1024 * 1024 * 1024 // 1GB
 }

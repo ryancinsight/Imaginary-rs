@@ -18,6 +18,6 @@ pub mod overlay;
 // Re-export most common operations for ergonomic use
 pub use transform::{resize, rotate, crop, flip_horizontal, flip_vertical, enlarge, extract, zoom, smart_crop, thumbnail};
 pub use color::{grayscale, adjust_brightness, adjust_contrast, sharpen, blur};
-pub use watermark::{watermark, watermark_image};
+// pub use watermark::watermark; // Not re-exported at top level unless part of public API
 pub use format::{convert_format, autorotate};
-pub use overlay::{overlay, draw_text}; 
+// Note: overlay and draw_text are not re-exported; use overlay::overlay if needed internally. 

@@ -21,7 +21,7 @@ use image::{DynamicImage, GenericImage, GenericImageView};
 /// # let base = DynamicImage::new_rgb8(100, 100);
 /// # let overlay_img = DynamicImage::new_rgb8(50, 50);
 /// let result = overlay(base, overlay_img, 10, 10).unwrap();
-pub fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32) -> Result<DynamicImage, AppError> {
+pub(crate) fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32) -> Result<DynamicImage, AppError> {
     let mut img = image.clone();
     img.copy_from(&overlay_image, x, y).map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
     Ok(img)
@@ -38,7 +38,7 @@ pub fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32)
 ///
 /// # Returns
 /// A new `DynamicImage` with the text drawn (currently a no-op).
-pub fn draw_text(image: DynamicImage, _text: &str, _x: u32, _y: u32, _font_size: u32) -> DynamicImage {
+pub(crate) fn draw_text(image: DynamicImage, _text: &str, _x: u32, _y: u32, _font_size: u32) -> DynamicImage {
     image
 }
 

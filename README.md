@@ -65,26 +65,25 @@ cargo run
 
 ## Contributing: Adding New Operations
 
-1. Implement the operation in `src/image/operations.rs`.
+1. Implement the operation in its own submodule under `src/image/operations/`.
 2. Add parameter struct and validation in `src/image/params.rs`.
 3. Add to `SupportedOperation` in `src/image/pipeline_types.rs`.
 4. Update `execute_single_operation` in `src/image/pipeline_executor.rs`.
-5. Add tests.
-6. Document the operation in this README.
+5. Add tests in the same file as the operation.
+6. Document the operation in this README if it is part of the public API.
 
 ## Image Operations: Modular Structure
 
 Imaginary-rs organizes all image processing operations into a deep, maintainable vertical module structure:
 
-| Module      | Operations                                                                 |
-|-------------|----------------------------------------------------------------------------|
+| Module      | Public Operations (re-exported at top level)                                         |
+|-------------|--------------------------------------------------------------------------------------|
 | `transform` | `resize`, `rotate`, `crop`, `flip_horizontal`, `flip_vertical`, `enlarge`, `extract`, `zoom`, `smart_crop`, `thumbnail` |
-| `color`     | `grayscale`, `blur`, `adjust_brightness`, `adjust_contrast`, `sharpen`     |
-| `format`    | `convert_format`, `autorotate`                                             |
-| `overlay`   | `overlay`, `draw_text`                                                     |
-| `watermark` | `watermark`, `watermark_image`                                             |
+| `color`     | `grayscale`, `blur`, `adjust_brightness`, `adjust_contrast`, `sharpen`               |
+| `format`    | `convert_format`, `autorotate`                                                       |
+| `watermark` | `watermark`                                                                          |
 
-All common operations are re-exported at the top level of the `operations` module for ergonomic use.
+All common operations are re-exported at the top level of the `operations` module for ergonomic use. Internal helpers (e.g., `overlay`, `draw_text`, `watermark_image`) are not part of the public API.
 
 ### Example: Using the Modular API in Rust
 
@@ -92,7 +91,7 @@ All common operations are re-exported at the top level of the `operations` modul
 use imaginary::image::operations::{resize, grayscale, watermark, convert_format};
 use imaginary::image::params::{ResizeParams, WatermarkParams, FormatConversionParams};
 
-let img = ...; // Load a DynamicImage
+let img = /* Load a DynamicImage */;
 let img = resize(img, &ResizeParams { width: 300, height: 300 });
 let img = grayscale(img);
 let img = watermark(img, &WatermarkParams {
@@ -121,6 +120,7 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - Each operation is implemented in its own submodule under [`src/image/operations/`](src/image/operations/).
 - When adding new operations, create a new submodule if needed and keep files under 300 lines.
 - Add unit tests in the same file as the operation.
+- Only public, user-facing operations should be re-exported at the top level of the `operations` module.
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ---

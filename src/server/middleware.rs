@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::http::errors::AppError;
 
+#[allow(dead_code)] // For future logging middleware
 pub async fn log_request_and_errors(
     req: Request<axum::body::Body>,
     next: Next,
@@ -24,6 +25,7 @@ pub async fn log_request_and_errors(
     response
 }
 
+#[allow(dead_code)] // For future authentication middleware
 pub async fn authenticate(
     req: Request<axum::body::Body>,
     next: Next,
@@ -34,11 +36,12 @@ pub async fn authenticate(
     };
 
     // Allow the request to proceed if the API key is not set
-    if let Some(api_key) = &config.security.key {
+    if let Some(api_key) = config.security.key() {
         if !api_key.is_empty() {
-            if let Some(request_api_key) = req.headers().get("x-api-key") {
-                let request_api_key = request_api_key.to_str().unwrap_or("");
-                if request_api_key != api_key {
+            if let Some(request_api_key_header) = req.headers().get("x-api-key") {
+                let request_api_key_str = request_api_key_header.to_str().unwrap_or("");
+                // TODO: Use a constant-time comparison for API keys to prevent timing attacks (e.g., subtle crate)
+                if request_api_key_str != api_key.as_ref() {
                     return AppError::Unauthorized("Invalid API key".to_string()).into_response();
                 }
             } else {

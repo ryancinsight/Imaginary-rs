@@ -4,6 +4,8 @@ use super::pipeline_types::{PipelineOperationSpec, SupportedOperation};
 use crate::http::errors::{AppError, ImageError};
 use image::DynamicImage;
 use serde_json::Value;
+use image::GenericImageView;
+use image::{ImageBuffer, Rgba};
 
 /// Executes a sequence of image operations (pipeline) on the given image.
 ///
@@ -175,7 +177,7 @@ fn parse_params<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
+    use image::DynamicImage;
     use serde_json::json;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
