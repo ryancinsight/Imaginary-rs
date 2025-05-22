@@ -2,10 +2,8 @@ use super::operations;
 use super::params::{self, Validate};
 use super::pipeline_types::{PipelineOperationSpec, SupportedOperation};
 use crate::http::errors::{AppError, ImageError};
-use image::DynamicImage;
+use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
 use serde_json::Value;
-use image::GenericImageView;
-use image::{ImageBuffer, Rgba};
 
 /// Executes a sequence of image operations (pipeline) on the given image.
 ///

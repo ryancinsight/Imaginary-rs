@@ -5,7 +5,7 @@
 use crate::http::errors::AppError;
 use image::{DynamicImage, GenericImage, GenericImageView};
 use rusttype::{Font, Scale, point};
-use image::{Rgba, RgbaImage};
+use image::Rgba;
 
 /// Overlay one image on top of another at the given coordinates.
 ///

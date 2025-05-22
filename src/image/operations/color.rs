@@ -3,8 +3,8 @@
 //! This module provides functions for grayscale conversion, brightness/contrast adjustment, sharpening, and blurring.
 
 use image::DynamicImage;
-use crate::image::params::{BlurParams};
 use image::GenericImageView;
+use crate::image::params::{BlurParams};
 
 /// Convert an image to grayscale.
 ///

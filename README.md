@@ -9,6 +9,12 @@ A Rust implementation of the [h2non/imaginary](https://github.com/h2non/imaginar
 - Security middleware (API key, CORS)
 - Configurable via file, env, or CLI
 - Extensible: add new operations easily
+- HTTP/1.1 and HTTP/2 support (user-selectable)
+- Flexible TLS: self-signed or user-provided certificates
+- Automatic self-signed certificate generation if missing
+- HTTP/2 mode: HTTPS on port 3000, HTTP/1.1 redirect on 8080
+- HTTP/1.1 mode: HTTP on port 8080 (default)
+- All endpoints, logging, and middleware preserved
 
 ## Supported Operations (for pipeline)
 
@@ -126,6 +132,26 @@ Send a POST request to `/pipeline` with a multipart form containing:
 ## Command Line Options
 
 - `--concurrency <N>`: Maximum number of concurrent HTTP requests to process (0 = unlimited, default: 0). Matches the original imaginary's concurrency option.
+- `--http-version <http1|http2>`: Select HTTP version (default: http1)
+- `--tls-mode <self-signed|signed>`: TLS mode (default: self-signed)
+- `--cert-path <PATH>`: Path to TLS certificate (default: cert.pem)
+- `--key-path <PATH>`: Path to TLS private key (default: key.pem)
+
+### Security Notes
+- For production, always use a strong API key and salt
+- Use signed certificates in production
+- Self-signed certificates are for development/testing only
+
+## Documentation Best Practices
+- Documentation is updated with every major code change
+- Scope and audience are defined for each doc section
+- Examples and CLI usage are kept current
+- [Best practices for documentation maintenance](https://www.linkedin.com/advice/0/what-best-practices-keeping-your-software-documentation-28sje):
+  - Define scope and audience
+  - Use clear, concise language
+  - Update docs with code changes
+  - Test and validate documentation
+  - Foster a culture of documentation
 
 ---
 MIT License.

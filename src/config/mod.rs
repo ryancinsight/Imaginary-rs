@@ -84,8 +84,8 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) {
     if let Some(write_timeout) = matches.get_one::<String>("write-timeout") {
         config["server"]["write_timeout"] = Value::Integer(write_timeout.parse::<i64>().unwrap());
     }
-    if let Some(concurrency) = matches.get_one::<String>("concurrency") {
-        config["server"]["concurrency"] = Value::Integer(concurrency.parse::<i64>().unwrap());
+    if let Some(concurrency) = matches.get_one::<u32>("concurrency") {
+        config["server"]["concurrency"] = Value::Integer(*concurrency as i64);
     }
     if let Some(max_body_size) = matches.get_one::<String>("max-body-size") {
         config["server"]["max_body_size"] = Value::Integer(max_body_size.parse::<i64>().unwrap());

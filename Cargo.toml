@@ -10,6 +10,7 @@ repository = "https://github.com/ryancinsight/imaginary-rs"
 [dependencies]
 # Web framework
 axum = {version = "0.7.5", features= ["http2", "multipart", "json"]}
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 tower-http = { version = "0.5.2", features = [
     "cors", 
     "trace",
@@ -29,7 +30,9 @@ imageproc = "0.23.0"  # For advanced image processing like text rendering
 rusttype = "0.9.3"    # Font rendering for watermarks
 
 # Runtime and async
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+rustls = "0.23"
+rustls-pemfile = "2"
 # Error handling
 thiserror = "2.0.12"
 anyhow = "1.0.98"

@@ -3,10 +3,9 @@
 //! This module provides functions for format conversion and autorotation.
 
 use crate::http::errors::AppError;
-use image::{DynamicImage, ImageFormat};
+use image::{DynamicImage, ImageFormat, GenericImageView};
 use std::io::Cursor;
 use crate::image::params::FormatConversionParams;
-use image::GenericImageView;
 
 /// Convert the image to a different format with optional quality parameter.
 ///

@@ -111,7 +111,7 @@ pub(crate) fn watermark_image(
     let (img_width, img_height) = image.dimensions();
     let watermark_width = img_width / 4;
     let watermark_height = img_height / 4;
-    let mut watermark = RgbaImage::from_pixel(
+    let watermark = RgbaImage::from_pixel(
         watermark_width,
         watermark_height,
         Rgba([255, 255, 255, (params.opacity * 255.0) as u8]),

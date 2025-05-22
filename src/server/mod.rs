@@ -78,7 +78,7 @@ fn default_write_timeout() -> u64 { 30 }
 fn default_concurrency() -> usize { 4 }
 fn default_max_body_size() -> usize { 10 * 1024 * 1024 }
 
-pub fn create_router(config: Arc<Config>) -> BoxCloneService<Request<Body>, Response<Body>, Infallible> {
+pub fn create_router(config: Arc<Config>) -> Router {
     let common_middleware = ServiceBuilder::new()
         .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid::default()))
         .layer(TraceLayer::new_for_http()
@@ -97,7 +97,7 @@ pub fn create_router(config: Arc<Config>) -> BoxCloneService<Request<Body>, Resp
         .layer(common_middleware)
         .with_state(config);
 
-    BoxCloneService::new(router_service)
+    router_service
 }
 
 // Define the error handler as a standalone async function

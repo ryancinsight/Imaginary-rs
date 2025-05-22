@@ -1,3 +1,12 @@
+/// CLI argument definitions for Imaginary-rs.
+///
+/// ## HTTP/1.1 and HTTP/2 Support
+/// - `--http-version <http1|http2>`: Select HTTP version (default: http1)
+/// - `--tls-mode <self-signed|signed>`: TLS mode (default: self-signed)
+/// - `--cert-path <PATH>`: Path to TLS certificate (default: cert.pem)
+/// - `--key-path <PATH>`: Path to TLS private key (default: key.pem)
+///
+/// Documentation is updated with every major change, following [best practices](https://www.linkedin.com/advice/0/what-best-practices-keeping-your-software-documentation-28sje).
 use clap::{Arg, Command};
 
 pub fn build_cli() -> Command {
@@ -106,5 +115,33 @@ pub fn build_cli() -> Command {
                 .long("cors")
                 .help("Enables CORS support")
                 .num_args(0),
+        )
+        .arg(
+            Arg::new("http-version")
+                .long("http-version")
+                .value_name("VERSION")
+                .help("HTTP version to use: http1 or http2")
+                .default_value("http1"),
+        )
+        .arg(
+            Arg::new("tls-mode")
+                .long("tls-mode")
+                .value_name("MODE")
+                .help("TLS mode: self-signed or signed")
+                .default_value("self-signed"),
+        )
+        .arg(
+            Arg::new("cert-path")
+                .long("cert-path")
+                .value_name("PATH")
+                .help("Path to TLS certificate file")
+                .default_value("cert.pem"),
+        )
+        .arg(
+            Arg::new("key-path")
+                .long("key-path")
+                .value_name("PATH")
+                .help("Path to TLS private key file")
+                .default_value("key.pem"),
         )
 }

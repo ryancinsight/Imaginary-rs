@@ -1,6 +1,30 @@
 # Contributing to Imaginary-rs
 
-Thank you for your interest in contributing! This project follows elite engineering practices for maintainability, clarity, and testability.
+Thank you for your interest in contributing!
+
+## Documentation Requirements
+- **Update documentation with every feature, bugfix, or breaking change.**
+  - This includes the README, CLI help, and relevant code comments.
+- **Follow best practices:**
+  - Define the scope and audience for your documentation
+  - Use clear, concise language
+  - Provide examples and usage instructions
+  - Regularly review and update documentation as code evolves
+  - Validate documentation for accuracy and completeness
+  - Collaborate with the team to keep docs up-to-date
+- See [LinkedIn best practices for documentation](https://www.linkedin.com/advice/0/what-best-practices-keeping-your-software-documentation-28sje)
+
+## Code Guidelines
+- Write clear, maintainable, and well-tested code
+- Follow the existing code style and structure
+- Add or update tests for new features and bugfixes
+
+## Pull Requests
+- Ensure all tests pass
+- Ensure documentation is updated and accurate
+- Provide a clear description of your changes
+
+Thank you for helping keep Imaginary-rs high quality and well-documented!
 
 ## Vertical Modular Structure
 
@@ -41,12 +65,6 @@ Thank you for your interest in contributing! This project follows elite engineer
 - Use clear, descriptive names and idiomatic Rust patterns.
 - Minimize the public API surface; use `pub(crate)` or private visibility for helpers.
 - Prefer vertical, modular structure over large, flat files.
-
-## Pull Requests
-
-- Ensure all tests pass and documentation is up to date.
-- Keep pull requests focused and under 300 lines of code where possible.
-- Reference related issues or discussions in your PR description.
 
 ## Command Line Options
 
