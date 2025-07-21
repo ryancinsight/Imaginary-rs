@@ -8,6 +8,7 @@ use std::env;
 use std::process::Command;
 use std::fmt;
 use std::ops::Deref;
+use std::fs;
 
 type HmacSha256 = Hmac<Sha256>;
 

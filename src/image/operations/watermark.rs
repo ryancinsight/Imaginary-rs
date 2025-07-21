@@ -123,7 +123,7 @@ pub(crate) fn watermark_image(
         WatermarkPosition::TopRight => (img_width - watermark_width, 0),
         WatermarkPosition::BottomLeft => (0, img_height - watermark_height),
         WatermarkPosition::BottomRight => (img_width - watermark_width, img_height - watermark_height),
-        WatermarkPosition::Center | _ => (
+        WatermarkPosition::Center => (
             (img_width - watermark_width) / 2,
             (img_height - watermark_height) / 2,
         ),
