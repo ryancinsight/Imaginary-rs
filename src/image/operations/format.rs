@@ -23,7 +23,22 @@ use crate::image::params::FormatConversionParams;
 pub fn convert_format(image: DynamicImage, params: &FormatConversionParams) -> Result<DynamicImage, AppError> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
-    image.write_to(&mut cursor, ImageFormat::from_extension(&params.format).unwrap())
+    
+    // Safely determine the image format without panicking
+    let format = match params.format.to_lowercase().as_str() {
+        "png" => ImageFormat::Png,
+        "jpeg" | "jpg" => ImageFormat::Jpeg,
+        "gif" => ImageFormat::Gif,
+        "webp" => ImageFormat::WebP,
+        "bmp" => ImageFormat::Bmp,
+        "tiff" | "tif" => ImageFormat::Tiff,
+        "ico" => ImageFormat::Ico,
+        _ => return Err(AppError::UnsupportedMediaType(
+            format!("Unsupported image format: {}", params.format)
+        )),
+    };
+    
+    image.write_to(&mut cursor, format)
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
     image::load_from_memory(&buffer)
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))
