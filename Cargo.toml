@@ -68,6 +68,9 @@ toml = "0.8.22"
 rayon = "1.10"
 num_cpus = "1.16"
 
+# System monitoring
+sysinfo = "0.32"
+
 [dev-dependencies]
 pretty_assertions = "1.4"
 

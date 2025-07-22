@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::http::errors::AppError;
+use crate::http::handlers::health_handler::{increment_error_count, increment_request_count};
 use axum::http::{Request, Response};
 use axum::middleware::Next;
 use axum::response::IntoResponse;
@@ -77,6 +78,25 @@ pub async fn authenticate(
     }
 
     next.run(req).await
+}
+
+/// Middleware to track metrics for requests and errors
+pub async fn metrics_middleware(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    // Increment request counter for every request
+    increment_request_count();
+
+    // Process the request
+    let response = next.run(req).await;
+
+    // Increment error counter for 4xx and 5xx status codes
+    if response.status().is_client_error() || response.status().is_server_error() {
+        increment_error_count();
+    }
+
+    response
 }
 
 #[allow(dead_code)]

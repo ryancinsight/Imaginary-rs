@@ -4,6 +4,7 @@ use axum::Json;
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use sysinfo::{Disks, System};
 use tracing::info;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -19,13 +20,11 @@ pub fn init_health_metrics() {
 }
 
 /// Increment request counter
-#[allow(dead_code)]
 pub fn increment_request_count() {
     REQUEST_COUNT.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Increment error counter
-#[allow(dead_code)]
 pub fn increment_error_count() {
     ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
 }
@@ -99,20 +98,51 @@ pub async fn metrics() -> impl IntoResponse {
     }))
 }
 
-/// Simple memory usage check (returns true if usage is reasonable)
+/// Check memory usage - returns true if usage is reasonable (less than 90%)
 fn check_memory_usage() -> bool {
-    // Simple heuristic - in production, use proper memory monitoring
-    true // Placeholder - always healthy for now
+    let mut system = System::new();
+    system.refresh_memory();
+
+    let total_memory = system.total_memory();
+    let used_memory = system.used_memory();
+
+    if total_memory == 0 {
+        return true; // Can't determine, assume healthy
+    }
+
+    let usage_percentage = (used_memory as f64 / total_memory as f64) * 100.0;
+    usage_percentage < 90.0
 }
 
-/// Simple disk space check
+/// Check disk space - returns true if available space is more than 10%
 fn check_disk_space() -> bool {
-    // Simple heuristic - in production, check actual disk usage
-    true // Placeholder - always healthy for now
+    let disks = Disks::new_with_refreshed_list();
+
+    // Check the root filesystem
+    for disk in &disks {
+        if disk.mount_point().to_str().unwrap_or("") == "/" {
+            let total_space = disk.total_space();
+            let available_space = disk.available_space();
+
+            if total_space == 0 {
+                return true; // Can't determine, assume healthy
+            }
+
+            let usage_percentage =
+                ((total_space - available_space) as f64 / total_space as f64) * 100.0;
+            return usage_percentage < 90.0;
+        }
+    }
+
+    // If we can't find root filesystem, assume healthy
+    true
 }
 
-/// Get current memory usage (placeholder implementation)
+/// Get current memory usage in bytes
 fn get_memory_usage() -> u64 {
-    // In production, use proper memory monitoring
-    0 // Placeholder
+    let mut system = System::new();
+    system.refresh_memory();
+
+    // Return used memory in bytes
+    system.used_memory()
 }

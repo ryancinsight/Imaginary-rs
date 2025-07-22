@@ -29,7 +29,6 @@ RUN cargo build --release && \
 
 # Copy actual source code
 COPY src/ src/
-COPY tests/ tests/
 COPY config/ config/
 
 # Build the application
@@ -53,9 +52,9 @@ USER nonroot:nonroot
 # Expose the application port
 EXPOSE 8080
 
-# Add health check
+# Add health check - simplified to just execute the binary without shell syntax
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD ["/usr/local/bin/imaginary-rs", "--health-check"] || exit 1
+    CMD ["/usr/local/bin/imaginary-rs", "--health-check"]
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/imaginary-rs"]

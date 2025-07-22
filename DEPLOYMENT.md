@@ -34,9 +34,13 @@ docker-compose --profile monitoring up
 
 ### Docker Swarm (Production)
 ```bash
-# Create secrets
-echo "your-secure-api-key" | docker secret create api_key -
-echo "your-secure-salt" | docker secret create api_salt -
+# Create secrets (secure method - prompts for input without saving to shell history)
+docker secret create api_key -
+docker secret create api_salt -
+
+# Alternative: Create secrets from files (recommended for scripted deployments)
+# echo "your-secure-api-key" > /tmp/api_key && docker secret create api_key /tmp/api_key && rm /tmp/api_key
+# echo "your-secure-salt" > /tmp/api_salt && docker secret create api_salt /tmp/api_salt && rm /tmp/api_salt
 
 # Deploy stack
 docker stack deploy -c docker-compose.prod.yml imaginary-rs
@@ -227,8 +231,12 @@ kubectl exec -it deployment/imaginary-rs -n imaginary-rs -- /usr/local/bin/imagi
 # Port forward for local testing
 kubectl port-forward svc/imaginary-rs-service 8080:8080 -n imaginary-rs
 
-# Execute shell in container
-kubectl exec -it deployment/imaginary-rs -n imaginary-rs -- sh
+# Note: The production image uses a distroless base which does not contain a shell.
+# For debugging, use an ephemeral debug container:
+kubectl debug deployment/imaginary-rs -n imaginary-rs -it --image=busybox --target=imaginary-rs
+
+# Alternative: Check logs directly
+kubectl logs deployment/imaginary-rs -n imaginary-rs --follow
 
 # View configuration
 kubectl get configmap imaginary-rs-config -n imaginary-rs -o yaml

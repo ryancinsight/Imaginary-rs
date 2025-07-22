@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle health check command
     if matches.get_flag("health-check") {
-        return perform_health_check().await;
+        return perform_health_check(&matches).await;
     }
 
     // Initialize health metrics
@@ -249,14 +249,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Perform a health check by making an HTTP request to the health endpoint
-async fn perform_health_check() -> Result<(), Box<dyn std::error::Error>> {
+async fn perform_health_check(
+    matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
     use reqwest;
 
+    // Get host and port from CLI arguments or defaults
+    let host = matches
+        .get_one::<String>("host")
+        .map(|s| s.as_str())
+        .unwrap_or("127.0.0.1");
+    let port = matches
+        .get_one::<String>("port")
+        .map(|s| s.as_str())
+        .unwrap_or("8080");
+
     let client = reqwest::Client::new();
-    let url = "http://127.0.0.1:8080/health";
+    let url = format!("http://{}:{}/health", host, port);
 
     match client
-        .get(url)
+        .get(&url)
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
