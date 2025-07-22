@@ -170,20 +170,16 @@ fn is_safe_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ipv4) => {
             // Use De Morgan's law to simplify boolean expression
-            !(ipv4.is_private() || 
-              ipv4.is_loopback() || 
-              ipv4.is_link_local() || 
-              ipv4.is_broadcast() || 
-              ipv4.is_multicast() || 
-              // Reject carrier-grade NAT (RFC 6598)
+           !(ipv4.is_private() ||
+              ipv4.is_loopback() ||
+              ipv4.is_link_local() ||
+              ipv4.is_broadcast() ||
+              ipv4.is_multicast() ||
               (ipv4.octets()[0] == 100 && (64..128).contains(&ipv4.octets()[1])) ||
-              // Reject cloud metadata service IPs
               ipv4 == Ipv4Addr::new(169, 254, 169, 254) ||
-              // Reject test networks (RFC 5737)
               (ipv4.octets()[0] == 192 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 2) ||
               (ipv4.octets()[0] == 198 && ipv4.octets()[1] == 51 && ipv4.octets()[2] == 100) ||
               (ipv4.octets()[0] == 203 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 113) ||
-              // Reject documentation range (RFC 3849) - remove unnecessary parentheses
               (ipv4.octets()[0] == 192 && ipv4.octets()[1] == 88 && ipv4.octets()[2] == 99))
         }
         IpAddr::V6(ipv6) => {
