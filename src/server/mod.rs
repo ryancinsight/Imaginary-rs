@@ -18,39 +18,36 @@
 //! `BoxCloneService` is utilized for type erasure to simplify service types, making them suitable
 //! for use with `axum::serve`.
 
+use crate::config::Config;
+use crate::http::errors::AppError;
+use crate::http::handlers::health_handler::{health_check, metrics, readiness_check};
+use crate::http::handlers::legacy_process_handler::process_image;
+use crate::http::handlers::pipeline_handler::process_pipeline;
+use crate::server::middleware::concurrency_limit_middleware;
+use axum::{
+    body::Body,
+    http::{HeaderName, Response, StatusCode},
+    response::IntoResponse,
+    routing::{get, post},
+    BoxError, Json, Router, ServiceExt,
+};
+use serde::Deserialize;
+use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::Deserialize;
-use tracing::{info, Level};
-use axum::{
-    Router,
-    routing::{get, post},
-    http::{StatusCode, HeaderName, Response},
-    body::Body,
-    BoxError,
-    Json,
-    response::IntoResponse,
-    ServiceExt,
-};
-use tower_http::{
-    cors::{Any, CorsLayer},
-    compression::CompressionLayer,
-    trace::{TraceLayer, DefaultOnResponse, DefaultMakeSpan, DefaultOnRequest},
-    request_id::{SetRequestIdLayer, MakeRequestUuid},
-    catch_panic::CatchPanicLayer,
-};
-use tower::ServiceBuilder;
-use tower::util::BoxCloneService;
-use crate::config::Config;
-use crate::http::handlers::health_handler::{health_check, readiness_check, metrics};
-use crate::http::errors::AppError;
-use serde_json::json;
 use tokio::net::TcpListener;
-use crate::http::handlers::legacy_process_handler::process_image;
-use crate::http::handlers::pipeline_handler::process_pipeline;
 use tokio::sync::Semaphore;
-use crate::server::middleware::concurrency_limit_middleware;
+use tower::util::BoxCloneService;
+use tower::ServiceBuilder;
+use tower_http::{
+    catch_panic::CatchPanicLayer,
+    compression::CompressionLayer,
+    cors::{Any, CorsLayer},
+    request_id::{MakeRequestUuid, SetRequestIdLayer},
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
+use tracing::{info, Level};
 
 pub mod middleware;
 
@@ -74,22 +71,46 @@ pub struct ServerConfig {
     pub max_body_size: usize,
 }
 
-fn default_port() -> u16 { 8080 }
-fn default_host() -> String { "127.0.0.1".to_string() }
-fn default_read_timeout() -> u64 { 30 }
-fn default_write_timeout() -> u64 { 30 }
-fn default_concurrency() -> usize { 4 }
-fn default_max_body_size() -> usize { 10 * 1024 * 1024 }
+fn default_port() -> u16 {
+    8080
+}
+fn default_host() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_read_timeout() -> u64 {
+    30
+}
+fn default_write_timeout() -> u64 {
+    30
+}
+fn default_concurrency() -> usize {
+    4
+}
+fn default_max_body_size() -> usize {
+    10 * 1024 * 1024
+}
 
 pub fn create_router(config: Arc<Config>) -> Router {
     let common_middleware = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid))
-        .layer(TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
-            .on_request(DefaultOnRequest::new().level(Level::INFO))
-            .on_response(DefaultOnResponse::new().level(Level::INFO).latency_unit(tower_http::LatencyUnit::Micros)))
-        .layer(CorsLayer::new()
-            .allow_origin(Any))
+        .layer(SetRequestIdLayer::new(
+            HeaderName::from_static("x-request-id"),
+            MakeRequestUuid,
+        ))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .level(Level::INFO)
+                        .include_headers(true),
+                )
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(tower_http::LatencyUnit::Micros),
+                ),
+        )
+        .layer(CorsLayer::new().allow_origin(Any))
         .layer(CompressionLayer::new())
         .layer(CatchPanicLayer::new());
 
@@ -108,31 +129,61 @@ pub fn create_router(config: Arc<Config>) -> Router {
 async fn outer_error_handler(err: BoxError) -> Response<Body> {
     tracing::error!(error = %err, "Outer error handler (timeout or propagated)");
     if err.is::<tower::timeout::error::Elapsed>() {
-        (StatusCode::REQUEST_TIMEOUT, Json(json!({ "error": "Request timed out" }))).into_response()
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            Json(json!({ "error": "Request timed out" })),
+        )
+            .into_response()
     } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": format!("Unhandled error: {}", err) }))).into_response()
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Unhandled error: {}", err) })),
+        )
+            .into_response()
     }
 }
 
 #[allow(dead_code)]
-pub async fn run_server(config: Arc<Config>, semaphore: Option<Arc<Semaphore>>) -> Result<(), AppError> {
+pub async fn run_server(
+    config: Arc<Config>,
+    semaphore: Option<Arc<Semaphore>>,
+) -> Result<(), AppError> {
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .map_err(|_| AppError::InternalServerError("Failed to parse address".to_string()))?;
 
-    let std_listener = std::net::TcpListener::bind(addr)
-        .map_err(|e| AppError::InternalServerError(format!("Failed to bind std listener: {}", e)))?;
-    std_listener.set_nonblocking(true)
-        .map_err(|e| AppError::InternalServerError(format!("Failed to set std listener to non-blocking: {}", e)))?;
-    let listener = TcpListener::from_std(std_listener)
-        .map_err(|e| AppError::InternalServerError(format!("Failed to convert std listener to tokio listener: {}", e)))?;
+    let std_listener = std::net::TcpListener::bind(addr).map_err(|e| {
+        AppError::InternalServerError(format!("Failed to bind std listener: {}", e))
+    })?;
+    std_listener.set_nonblocking(true).map_err(|e| {
+        AppError::InternalServerError(format!("Failed to set std listener to non-blocking: {}", e))
+    })?;
+    let listener = TcpListener::from_std(std_listener).map_err(|e| {
+        AppError::InternalServerError(format!(
+            "Failed to convert std listener to tokio listener: {}",
+            e
+        ))
+    })?;
 
     let common_middleware = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid))
-        .layer(TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
-            .on_request(DefaultOnRequest::new().level(Level::INFO))
-            .on_response(DefaultOnResponse::new().level(Level::INFO).latency_unit(tower_http::LatencyUnit::Micros)))
+        .layer(SetRequestIdLayer::new(
+            HeaderName::from_static("x-request-id"),
+            MakeRequestUuid,
+        ))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .level(Level::INFO)
+                        .include_headers(true),
+                )
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(tower_http::LatencyUnit::Micros),
+                ),
+        )
         .layer(CorsLayer::new().allow_origin(Any))
         .layer(CompressionLayer::new())
         .layer(CatchPanicLayer::new());

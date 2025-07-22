@@ -1,10 +1,10 @@
-use std::fmt;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::json;
+use std::fmt;
 use tracing::info;
 
 #[derive(Debug)]
@@ -48,8 +48,12 @@ impl fmt::Display for AppInfo {
 impl fmt::Display for ImageInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let info_message = match self {
-            ImageInfo::ImageProcessedSuccessfully(output_path) => format!("Image processed successfully: {}", output_path),
-            ImageInfo::ImageConvertedSuccessfully(output_path) => format!("Image converted successfully: {}", output_path),
+            ImageInfo::ImageProcessedSuccessfully(output_path) => {
+                format!("Image processed successfully: {}", output_path)
+            }
+            ImageInfo::ImageConvertedSuccessfully(output_path) => {
+                format!("Image converted successfully: {}", output_path)
+            }
         };
         write!(f, "{}", info_message)
     }
@@ -66,26 +70,22 @@ impl IntoResponse for AppInfo {
                 StatusCode::OK,
                 "Security configuration is not secure.".to_string(),
             ),
-            AppInfo::OriginAllowed(origin) => (
-                StatusCode::OK,
-                format!("Origin {} is allowed.", origin),
-            ),
-            AppInfo::OriginNotAllowed(origin) => (
-                StatusCode::OK,
-                format!("Origin {} is not allowed.", origin),
-            ),
+            AppInfo::OriginAllowed(origin) => {
+                (StatusCode::OK, format!("Origin {} is allowed.", origin))
+            }
+            AppInfo::OriginNotAllowed(origin) => {
+                (StatusCode::OK, format!("Origin {} is not allowed.", origin))
+            }
             AppInfo::GeneratedSignature(signature) => (
                 StatusCode::OK,
                 format!("Generated signature: {}", signature),
             ),
-            AppInfo::ValidatedSignature(is_valid) => (
-                StatusCode::OK,
-                format!("Signature is valid: {}", is_valid),
-            ),
-            AppInfo::ExpectedApiKey(api_key) => (
-                StatusCode::OK,
-                format!("Expected API key: '{}'", api_key),
-            ),
+            AppInfo::ValidatedSignature(is_valid) => {
+                (StatusCode::OK, format!("Signature is valid: {}", is_valid))
+            }
+            AppInfo::ExpectedApiKey(api_key) => {
+                (StatusCode::OK, format!("Expected API key: '{}'", api_key))
+            }
         };
 
         // Log the info message
@@ -96,7 +96,7 @@ impl IntoResponse for AppInfo {
             "code": status.as_u16(),
             "status": "success"
         }));
-        
+
         (status, body).into_response()
     }
 }
@@ -122,7 +122,7 @@ impl IntoResponse for ImageInfo {
             "code": status.as_u16(),
             "status": "success"
         }));
-        
+
         (status, body).into_response()
     }
 }

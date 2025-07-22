@@ -1,9 +1,9 @@
-use image::{DynamicImage, ImageFormat, GenericImageView};
-use std::io::Cursor;
-use crate::image::params::Validate;
 use crate::http::errors;
-use std::fs::File;
+use crate::image::params::Validate;
 use image::io::Reader as ImageReader;
+use image::{DynamicImage, GenericImageView, ImageFormat};
+use std::fs::File;
+use std::io::Cursor;
 
 #[allow(dead_code)]
 pub fn load_image_from_path(path: &str) -> Result<DynamicImage, image::ImageError> {
@@ -11,7 +11,11 @@ pub fn load_image_from_path(path: &str) -> Result<DynamicImage, image::ImageErro
 }
 
 #[allow(dead_code)]
-pub fn save_image_to_path(image: &DynamicImage, path: &str, format: ImageFormat) -> Result<(), image::ImageError> {
+pub fn save_image_to_path(
+    image: &DynamicImage,
+    path: &str,
+    format: ImageFormat,
+) -> Result<(), image::ImageError> {
     let mut output = File::create(path)?;
     image.write_to(&mut output, format)
 }
@@ -32,15 +36,15 @@ pub fn get_image_format(image_bytes: &[u8]) -> Option<ImageFormat> {
 
 #[allow(dead_code)]
 pub fn load_image_from_bytes(image_bytes: &[u8]) -> Result<DynamicImage, String> {
-    image::load_from_memory(image_bytes)
-        .map_err(|e| format!("Failed to load image: {}", e))
+    image::load_from_memory(image_bytes).map_err(|e| format!("Failed to load image: {}", e))
 }
 
 #[allow(dead_code)]
 pub fn save_image_to_bytes(image: &DynamicImage, format: ImageFormat) -> Result<Vec<u8>, String> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
-    image.write_to(&mut cursor, format)
+    image
+        .write_to(&mut cursor, format)
         .map_err(|e| format!("Failed to save image: {}", e))?;
     Ok(buffer)
 }
@@ -89,9 +93,11 @@ mod tests {
 
     #[test]
     fn test_save_image_to_bytes() {
-        let image = DynamicImage::ImageRgba8(
-            ImageBuffer::from_pixel(100, 100, Rgba([255u8, 0u8, 0u8, 255u8]))
-        );
+        let image = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            100,
+            100,
+            Rgba([255u8, 0u8, 0u8, 255u8]),
+        ));
         let result = save_image_to_bytes(&image, ImageFormat::Png);
         assert!(result.is_ok());
         let bytes = result.unwrap();

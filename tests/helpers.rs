@@ -48,5 +48,6 @@ pub fn save_test_image(img: &DynamicImage, filename: &str) -> std::io::Result<()
     path.push("test_output");
     std::fs::create_dir_all(&path)?;
     path.push(filename);
-    img.save(path).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-} 
+    img.save(path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+}

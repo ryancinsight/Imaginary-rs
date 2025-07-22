@@ -1,10 +1,10 @@
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use axum::http::StatusCode;
 use serde_json::json;
-use tracing::info;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::info;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -47,37 +47,45 @@ pub async fn health_check() -> impl IntoResponse {
 /// Detailed readiness check endpoint
 pub async fn readiness_check() -> impl IntoResponse {
     info!("Readiness check endpoint called");
-    
+
     // Perform basic system checks
     let memory_check = check_memory_usage();
     let disk_check = check_disk_space();
-    
+
     let is_ready = memory_check && disk_check;
-    let status_code = if is_ready { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
-    
-    (status_code, Json(json!({
-        "status": if is_ready { "ready" } else { "not_ready" },
-        "version": VERSION,
-        "checks": {
-            "memory": memory_check,
-            "disk": disk_check
-        },
-        "timestamp": SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
-    })))
+    let status_code = if is_ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+
+    (
+        status_code,
+        Json(json!({
+            "status": if is_ready { "ready" } else { "not_ready" },
+            "version": VERSION,
+            "checks": {
+                "memory": memory_check,
+                "disk": disk_check
+            },
+            "timestamp": SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        })),
+    )
 }
 
 /// Metrics endpoint for monitoring
 pub async fn metrics() -> impl IntoResponse {
     info!("Metrics endpoint called");
-    
-    let uptime_seconds = START_TIME.get()
+
+    let uptime_seconds = START_TIME
+        .get()
         .and_then(|start| SystemTime::now().duration_since(*start).ok())
         .map(|duration| duration.as_secs())
         .unwrap_or(0);
-    
+
     Json(json!({
         "version": VERSION,
         "uptime_seconds": uptime_seconds,
@@ -107,4 +115,4 @@ fn check_disk_space() -> bool {
 fn get_memory_usage() -> u64 {
     // In production, use proper memory monitoring
     0 // Placeholder
-} 
+}

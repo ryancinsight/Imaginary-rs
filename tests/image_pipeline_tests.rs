@@ -1,10 +1,10 @@
 mod helpers;
 
 use helpers::{create_test_image, load_test_image, save_test_image};
+use image::GenericImageView;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
 use serde_json::json;
-use image::GenericImageView;
 
 #[test]
 fn test_complete_pipeline_with_real_image() {
@@ -51,16 +51,14 @@ fn test_complete_pipeline_with_real_image() {
 fn test_format_conversion_pipeline() {
     let image = load_test_image("balloons.png");
 
-    let operations = vec![
-        PipelineOperationSpec {
-            operation: SupportedOperation::Convert,
-            ignore_failure: false,
-            params: json!({
-                "format": "jpeg",
-                "quality": 85
-            }),
-        },
-    ];
+    let operations = vec![PipelineOperationSpec {
+        operation: SupportedOperation::Convert,
+        ignore_failure: false,
+        params: json!({
+            "format": "jpeg",
+            "quality": 85
+        }),
+    }];
 
     let result = execute_pipeline(image, operations);
     assert!(result.is_ok());
@@ -168,20 +166,18 @@ fn test_pipeline_with_rotation_and_blur() {
 #[test]
 fn test_resize_pipeline() {
     let image = create_test_image(100, 100);
-    let operations = vec![
-        PipelineOperationSpec {
-            operation: SupportedOperation::Resize,
-            ignore_failure: false,
-            params: json!({
-                "width": 50,
-                "height": 50
-            }),
-        },
-    ];
+    let operations = vec![PipelineOperationSpec {
+        operation: SupportedOperation::Resize,
+        ignore_failure: false,
+        params: json!({
+            "width": 50,
+            "height": 50
+        }),
+    }];
 
     let result = execute_pipeline(image, operations);
     assert!(result.is_ok());
-    
+
     let processed = result.unwrap();
     assert_eq!(processed.dimensions(), (50, 50));
 }
@@ -189,15 +185,13 @@ fn test_resize_pipeline() {
 #[test]
 fn test_blur_pipeline() {
     let image = create_test_image(100, 100);
-    let operations = vec![
-        PipelineOperationSpec {
-            operation: SupportedOperation::Blur,
-            ignore_failure: false,
-            params: json!({
-                "sigma": 1.0
-            }),
-        },
-    ];
+    let operations = vec![PipelineOperationSpec {
+        operation: SupportedOperation::Blur,
+        ignore_failure: false,
+        params: json!({
+            "sigma": 1.0
+        }),
+    }];
 
     let result = execute_pipeline(image, operations);
     assert!(result.is_ok());
@@ -207,7 +201,7 @@ fn test_blur_pipeline() {
 fn test_complex_pipeline() {
     let image = load_test_image("balloons.png");
     let original_dimensions = image.dimensions();
-    
+
     let operations = vec![
         PipelineOperationSpec {
             operation: SupportedOperation::Resize,
@@ -235,11 +229,14 @@ fn test_complex_pipeline() {
 
     let result = execute_pipeline(image, operations);
     assert!(result.is_ok());
-    
+
     let processed = result.unwrap();
     // After 90-degree rotation, dimensions should be swapped
-    assert_eq!(processed.dimensions(), (original_dimensions.1 / 2, original_dimensions.0 / 2));
-    
+    assert_eq!(
+        processed.dimensions(),
+        (original_dimensions.1 / 2, original_dimensions.0 / 2)
+    );
+
     // Save the result for manual inspection if needed
     save_test_image(&processed, "complex_pipeline_result.png").unwrap();
 }
@@ -272,17 +269,15 @@ fn test_pipeline_with_ignored_failures() {
 #[test]
 fn test_pipeline_error_handling() {
     let image = create_test_image(100, 100);
-    let operations = vec![
-        PipelineOperationSpec {
-            operation: SupportedOperation::Resize,
-            ignore_failure: false,
-            params: json!({
-                "width": -50, // Invalid parameter
-                "height": 50
-            }),
-        },
-    ];
+    let operations = vec![PipelineOperationSpec {
+        operation: SupportedOperation::Resize,
+        ignore_failure: false,
+        params: json!({
+            "width": -50, // Invalid parameter
+            "height": 50
+        }),
+    }];
 
     let result = execute_pipeline(image, operations);
     assert!(result.is_err());
-} 
+}

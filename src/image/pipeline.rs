@@ -1,6 +1,6 @@
-use image::DynamicImage;
-use crate::image::params::Validate;
 use crate::http::errors::ImageError;
+use crate::image::params::Validate;
+use image::DynamicImage;
 
 #[allow(dead_code)]
 pub fn process_image(params: impl Validate) -> Result<(), ImageError> {

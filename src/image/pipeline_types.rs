@@ -44,11 +44,11 @@ pub enum SupportedOperation {
     Watermark,
     WatermarkImage,
     Blur,
-    Grayscale, // Added from existing imaginary-rs operations
+    Grayscale,        // Added from existing imaginary-rs operations
     AdjustBrightness, // Added from existing imaginary-rs operations
-    AdjustContrast, // Added from existing imaginary-rs operations
-    Sharpen, // Added from existing imaginary-rs operations
-    // Add other operations as they are implemented and supported in pipeline
+    AdjustContrast,   // Added from existing imaginary-rs operations
+    Sharpen,          // Added from existing imaginary-rs operations
+                      // Add other operations as they are implemented and supported in pipeline
 }
 
 // Consider adding a method to PipelineOperationSpec to try and parse `params`
@@ -58,4 +58,4 @@ pub enum SupportedOperation {
 //         serde_json::from_value(self.params.clone())
 //     }
 // }
-// This would require specific knowledge of param structs here, or a more generic approach. 
+// This would require specific knowledge of param structs here, or a more generic approach.

@@ -9,23 +9,23 @@
 //! By default, runs HTTP/1.1 on port 8080. In HTTP/2 mode, serves HTTPS on 3000 and redirects HTTP/1.1 on 8080.
 //!
 //! Documentation is updated with every major change, following [best practices](https://www.linkedin.com/advice/0/what-best-practices-keeping-your-software-documentation-28sje).
-use std::sync::Arc;
 use crate::config::cli;
+use std::sync::Arc;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-mod storage;
-mod security;   
 mod config;
-mod server;
 mod http;
 mod image;
+mod security;
+mod server;
+mod storage;
 mod utils;
 use crate::http::errors::AppError;
 use crate::http::info::AppInfo;
 use crate::security::{ApiKey, ApiSalt};
-use tokio::sync::Semaphore;
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
+use tokio::sync::Semaphore;
 
 use axum_server::Server;
 
@@ -63,12 +63,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Arc::new(config);
 
     // Use the security configuration
-    let allow_insecure = std::env::var("IMAGINARY_ALLOW_INSECURE").unwrap_or_else(|_| "1".to_string()) == "1";
+    let allow_insecure =
+        std::env::var("IMAGINARY_ALLOW_INSECURE").unwrap_or_else(|_| "1".to_string()) == "1";
     if let Err(e) = config.security.validate_secure() {
         if allow_insecure {
             eprintln!("\n*** WARNING: Running in INSECURE mode! ***\n{}\nThis is NOT safe for production.\nSet IMAGINARY_ALLOW_INSECURE=0 to require secure config.\n", e);
         } else {
-            return Err(AppError::InternalServerError(format!("Security configuration is not secure: {}. Refusing to start.", e)).into());
+            return Err(AppError::InternalServerError(format!(
+                "Security configuration is not secure: {}. Refusing to start.",
+                e
+            ))
+            .into());
         }
     } else {
         info!("Security configuration validated: secure defaults enforced.");
@@ -81,12 +86,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let data = &config.data;
-    let signature = config.security.generate_signature(data)
-        .map_err(|e| AppError::InternalServerError(format!("Failed to generate signature: {}", e)))?;
+    let signature = config.security.generate_signature(data).map_err(|e| {
+        AppError::InternalServerError(format!("Failed to generate signature: {}", e))
+    })?;
     info!("{}", AppInfo::GeneratedSignature(signature.clone()));
 
-    let is_valid = config.security.validate_signature(data, &signature)
-        .map_err(|e| AppError::InternalServerError(format!("Failed to validate signature: {}", e)))?;
+    let is_valid = config
+        .security
+        .validate_signature(data, &signature)
+        .map_err(|e| {
+            AppError::InternalServerError(format!("Failed to validate signature: {}", e))
+        })?;
     info!("{}", AppInfo::ValidatedSignature(is_valid));
 
     // Print expected and received API keys
@@ -101,14 +111,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if config.security.key().is_none() {
             let key_string = security::generate_local_machine_secret();
             let api_key = ApiKey::from(key_string.clone());
-            Arc::get_mut(&mut Arc::clone(&config)).unwrap().security.set_key(api_key);
+            Arc::get_mut(&mut Arc::clone(&config))
+                .unwrap()
+                .security
+                .set_key(api_key);
             eprintln!("\n*** WARNING: Auto-generated local security key for localhost. Not safe for remote use!\nKey: {}\n", key_string);
             insecure = true;
         }
         if config.security.salt().is_none() {
             let salt_string = security::generate_local_machine_secret();
             let api_salt = ApiSalt::from(salt_string.clone());
-            Arc::get_mut(&mut Arc::clone(&config)).unwrap().security.set_salt(api_salt);
+            Arc::get_mut(&mut Arc::clone(&config))
+                .unwrap()
+                .security
+                .set_salt(api_salt);
             eprintln!("\n*** WARNING: Auto-generated local security salt for localhost. Not safe for remote use!\nSalt: {}\n", salt_string);
             insecure = true;
         }
@@ -127,10 +143,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pass the semaphore to the server
     // server::run_server(config, semaphore).await?;
 
-    let http_version = matches.get_one::<String>("http-version").map(|s| s.as_str()).unwrap_or("http1");
-    let tls_mode = matches.get_one::<String>("tls-mode").map(|s| s.as_str()).unwrap_or("self-signed");
-    let cert_path = matches.get_one::<String>("cert-path").map(|s| s.as_str()).unwrap_or("cert.pem");
-    let key_path = matches.get_one::<String>("key-path").map(|s| s.as_str()).unwrap_or("key.pem");
+    let http_version = matches
+        .get_one::<String>("http-version")
+        .map(|s| s.as_str())
+        .unwrap_or("http1");
+    let tls_mode = matches
+        .get_one::<String>("tls-mode")
+        .map(|s| s.as_str())
+        .unwrap_or("self-signed");
+    let cert_path = matches
+        .get_one::<String>("cert-path")
+        .map(|s| s.as_str())
+        .unwrap_or("cert.pem");
+    let key_path = matches
+        .get_one::<String>("key-path")
+        .map(|s| s.as_str())
+        .unwrap_or("key.pem");
 
     let cert_exists = std::path::Path::new(cert_path).exists();
     let key_exists = std::path::Path::new(key_path).exists();
@@ -143,26 +171,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         } else if !cert_exists || !key_exists {
-                // Generate self-signed cert
-                let subj = "/CN=localhost";
-                let output = std::process::Command::new("openssl")
-                    .args([
-                        "req", "-x509", "-newkey", "rsa:4096",
-                        "-keyout", key_path, "-out", cert_path,
-                        "-days", "365", "-nodes", "-subj", subj
-                    ])
-                    .output()
-                    .expect("Failed to run openssl to generate self-signed certificate");
-                if !output.status.success() {
-                    eprintln!("Failed to generate self-signed certificate:\n{}", String::from_utf8_lossy(&output.stderr));
-                    std::process::exit(1);
-                }
-                println!("Generated self-signed certificate at {} and {}", cert_path, key_path);
+            // Generate self-signed cert
+            let subj = "/CN=localhost";
+            let output = std::process::Command::new("openssl")
+                .args([
+                    "req", "-x509", "-newkey", "rsa:4096", "-keyout", key_path, "-out", cert_path,
+                    "-days", "365", "-nodes", "-subj", subj,
+                ])
+                .output()
+                .expect("Failed to run openssl to generate self-signed certificate");
+            if !output.status.success() {
+                eprintln!(
+                    "Failed to generate self-signed certificate:\n{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                std::process::exit(1);
+            }
+            println!(
+                "Generated self-signed certificate at {} and {}",
+                cert_path, key_path
+            );
         }
         // Start HTTPS/2 on 3000
         let addr_https = SocketAddr::from(([0, 0, 0, 0], 3000));
         let app = server::create_router(config.clone());
-        let config_tls = RustlsConfig::from_pem_file(cert_path, key_path).await.unwrap();
+        let config_tls = RustlsConfig::from_pem_file(cert_path, key_path)
+            .await
+            .unwrap();
         println!("listening on https://{} (HTTP/2 enabled)", addr_https);
         let https_handle = tokio::spawn(async move {
             axum_server::bind_rustls(addr_https, config_tls)
@@ -172,15 +207,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
         // Start HTTP/1.1 redirect on 8080
         let addr_http = SocketAddr::from(([0, 0, 0, 0], 8080));
-        let redirect_router = axum::Router::new().fallback(
-            axum::routing::any(move |req: axum::http::Request<axum::body::Body>| async move {
-                let host = req.headers().get("host").and_then(|h| h.to_str().ok()).unwrap_or("localhost");
-                let uri = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+        let redirect_router = axum::Router::new().fallback(axum::routing::any(
+            move |req: axum::http::Request<axum::body::Body>| async move {
+                let host = req
+                    .headers()
+                    .get("host")
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or("localhost");
+                let uri = req
+                    .uri()
+                    .path_and_query()
+                    .map(|pq| pq.as_str())
+                    .unwrap_or("/");
                 let redirect_url = format!("https://{}:3000{}", host, uri);
                 axum::response::Redirect::permanent(&redirect_url)
-            })
+            },
+        ));
+        println!(
+            "listening on http://{} (redirects to https://host:3000)",
+            addr_http
         );
-        println!("listening on http://{} (redirects to https://host:3000)", addr_http);
         let http_handle = tokio::spawn(async move {
             Server::bind(addr_http)
                 .serve(redirect_router.into_make_service())
@@ -205,11 +251,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Perform a health check by making an HTTP request to the health endpoint
 async fn perform_health_check() -> Result<(), Box<dyn std::error::Error>> {
     use reqwest;
-    
+
     let client = reqwest::Client::new();
     let url = "http://127.0.0.1:8080/health";
-    
-    match client.get(url).timeout(std::time::Duration::from_secs(5)).send().await {
+
+    match client
+        .get(url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
         Ok(response) => {
             if response.status().is_success() {
                 println!("Health check: OK");

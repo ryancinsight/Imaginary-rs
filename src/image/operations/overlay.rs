@@ -3,9 +3,9 @@
 //! This module provides functions for overlaying images and drawing text.
 
 use crate::http::errors::AppError;
-use image::{DynamicImage, GenericImage};
-use rusttype::{Font, Scale, point};
 use image::Rgba;
+use image::{DynamicImage, GenericImage};
+use rusttype::{point, Font, Scale};
 
 /// Overlay one image on top of another at the given coordinates.
 ///
@@ -24,9 +24,15 @@ use image::Rgba;
 /// # let overlay_img = DynamicImage::new_rgb8(50, 50);
 /// let result = overlay(base, overlay_img, 10, 10).unwrap();
 #[allow(dead_code)]
-pub(crate) fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32) -> Result<DynamicImage, AppError> {
+pub(crate) fn overlay(
+    image: DynamicImage,
+    overlay_image: DynamicImage,
+    x: u32,
+    y: u32,
+) -> Result<DynamicImage, AppError> {
     let mut img = image.clone();
-    img.copy_from(&overlay_image, x, y).map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
+    img.copy_from(&overlay_image, x, y)
+        .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
     Ok(img)
 }
 
@@ -39,7 +45,10 @@ pub(crate) fn draw_text(
     y: u32,
     font_size: u32,
 ) -> DynamicImage {
-    let font_data = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts/DejaVuSans.ttf"));
+    let font_data = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/fonts/DejaVuSans.ttf"
+    ));
     let font = Font::try_from_bytes(font_data as &[u8]).expect("Failed to load font");
     let scale = Scale::uniform(font_size as f32);
     let color = Rgba([255, 255, 255, 255]);
@@ -68,7 +77,7 @@ pub(crate) fn draw_text(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
+    use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -102,7 +111,9 @@ mod tests {
                     break;
                 }
             }
-            if found { break; }
+            if found {
+                break;
+            }
         }
         assert!(found, "No text pixels found in expected region");
     }
@@ -121,8 +132,10 @@ mod tests {
                     break;
                 }
             }
-            if found { break; }
+            if found {
+                break;
+            }
         }
         assert!(found, "No text pixels found in expected region");
     }
-} 
+}
