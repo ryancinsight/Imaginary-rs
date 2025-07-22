@@ -12,10 +12,12 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Multipart, State},
+    extract::{Multipart, State, Query},
     response::{Response},
+    http::Method,
 };
 use image::{ImageFormat};
+use serde::{Deserialize};
 use serde_json::{from_str, from_value};
 
 use crate::{
@@ -30,26 +32,95 @@ use crate::{
 
 const MAX_IMAGE_SIZE: usize = 10 * 1024 * 1024; // 10 MB, consistent with server config default
 
-/// Handles POST /pipeline
+#[derive(Deserialize)]
+pub struct PipelineQuery {
+    url: Option<String>,
+    operations: String,
+}
+
+/// Handles both POST and GET /pipeline requests
 ///
-/// Accepts multipart/form-data with fields:
+/// POST: Accepts multipart/form-data with fields:
 /// - `image`: the image file
 /// - `operations`: JSON array of operation specs
 ///
+/// GET: Accepts query parameters:
+/// - `url`: URL of the image to process
+/// - `operations`: JSON-encoded array of operation specs
+///
 /// Returns the processed image as binary data.
 pub async fn process_pipeline(
+    method: Method,
     State(config): State<Arc<Config>>,
-    mut multipart: Multipart,
+    query: Option<Query<PipelineQuery>>,
+    multipart: Option<Multipart>,
 ) -> Result<Response, AppError> {
+    let (image_bytes, operations_spec, original_format) = match method {
+        Method::GET => handle_get_request(query, &config).await?,
+        Method::POST => handle_post_request(multipart, &config).await?,
+        _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
+    };
+
+    let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
+        .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
+
+    let processed_image = execute_pipeline(dynamic_image, operations_spec.clone())?;
+
+    // Determine output format - default to original format unless convert operation specifies otherwise
+    let output_format = determine_output_format(&operations_spec, original_format);
+    let content_type = output_format.to_mime_type();
+
+    let mut final_image_bytes = Vec::new();
+    processed_image
+        .write_to(&mut Cursor::new(&mut final_image_bytes), output_format)
+        .map_err(|e| AppError::ImageProcessingError(format!("Failed to write processed image: {}", e)))?;
+
+    Ok(Response::builder()
+        .header("Content-Type", content_type)
+        .body(axum::body::Body::from(final_image_bytes))
+        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?)
+}
+
+async fn handle_get_request(
+    query: Option<Query<PipelineQuery>>,
+    config: &Config,
+) -> Result<(Vec<u8>, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
+    let Query(params) = query.ok_or_else(|| AppError::BadRequest("Missing query parameters".to_string()))?;
+    
+    let url = params.url.ok_or_else(|| AppError::BadRequest("Missing 'url' parameter".to_string()))?;
+    
+    // Fetch image from URL
+    let image_bytes = fetch_image_from_url(&url, config).await?;
+    
+    // Parse operations
+    let operations_spec: Vec<PipelineOperationSpec> = from_str(&params.operations)
+        .map_err(|e| AppError::BadRequest(format!("Failed to parse 'operations' JSON: {}", e)))?;
+    
+    if operations_spec.is_empty() {
+        return Err(AppError::BadRequest("'operations' array cannot be empty".to_string()));
+    }
+    
+    let original_format = image::guess_format(&image_bytes)
+        .map_err(|_| AppError::UnsupportedMediaType("Could not determine image format".to_string()))?;
+    
+    Ok((image_bytes, operations_spec, original_format))
+}
+
+async fn handle_post_request(
+    multipart: Option<Multipart>,
+    config: &Config,
+) -> Result<(Vec<u8>, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
+    let mut multipart = multipart.ok_or_else(|| AppError::BadRequest("Missing multipart data".to_string()))?;
+    
     let mut image_data: Option<Vec<u8>> = None;
     let mut operations_json_str: Option<String> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| AppError::MultipartError(e.to_string()))? {
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
-            "image" | "file" => { // "file" for compatibility with h2non/imaginary common field name
+            "image" | "file" => {
                 let data = field.bytes().await.map_err(|e| AppError::MultipartError(e.to_string()))?;
-                if data.len() > config.server.max_body_size.min(MAX_IMAGE_SIZE) { // Use configured or default max
+                if data.len() > config.server.max_body_size.min(MAX_IMAGE_SIZE) {
                     return Err(AppError::PayloadTooLarge(format!(
                         "Image size {} exceeds limit",
                         data.len()
@@ -61,7 +132,6 @@ pub async fn process_pipeline(
                 operations_json_str = Some(field.text().await.map_err(|e| AppError::MultipartError(e.to_string()))?);
             }
             _ => {
-                // Ignore other fields or log a warning
                 tracing::debug!("Ignoring unknown multipart field: {}", name);
             }
         }
@@ -70,76 +140,158 @@ pub async fn process_pipeline(
     let image_bytes = image_data.ok_or_else(|| AppError::BadRequest("Missing image data in multipart request".to_string()))?;
     let ops_str = operations_json_str.ok_or_else(|| AppError::BadRequest("Missing 'operations' JSON string in multipart request".to_string()))?;
 
-    let operations_spec: Vec<PipelineOperationSpec> = from_str(&ops_str).map_err(|e| {
-        AppError::BadRequest(format!("Failed to parse 'operations' JSON: {}", e))
-    })?;
+    let operations_spec: Vec<PipelineOperationSpec> = from_str(&ops_str)
+        .map_err(|e| AppError::BadRequest(format!("Failed to parse 'operations' JSON: {}", e)))?;
 
     if operations_spec.is_empty() {
         return Err(AppError::BadRequest("'operations' array cannot be empty".to_string()));
     }
 
-    let image_format_guess = image::guess_format(&image_bytes)
-        .map_err(|_e| AppError::UnsupportedMediaType("Could not determine image format".to_string()))?;
+    let original_format = image::guess_format(&image_bytes)
+        .map_err(|_| AppError::UnsupportedMediaType("Could not determine image format".to_string()))?;
+
+    Ok((image_bytes, operations_spec, original_format))
+}
+
+async fn fetch_image_from_url(url: &str, config: &Config) -> Result<Vec<u8>, AppError> {
+    // Validate URL scheme for security
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err(AppError::BadRequest("Only HTTP and HTTPS URLs are supported".to_string()));
+    }
     
-    let dynamic_image = image::load_from_memory_with_format(&image_bytes, image_format_guess)
-        .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
+    // Create HTTP client with timeout
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| AppError::InternalServerError(format!("Failed to create HTTP client: {}", e)))?;
+    
+    let response = client.get(url)
+        .send()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Failed to fetch image from URL: {}", e)))?;
+    
+    if !response.status().is_success() {
+        return Err(AppError::BadRequest(format!("HTTP error when fetching image: {}", response.status())));
+    }
+    
+    let content_length = response.content_length().unwrap_or(0);
+    if content_length > config.server.max_body_size.min(MAX_IMAGE_SIZE) as u64 {
+        return Err(AppError::PayloadTooLarge(format!(
+            "Image size {} exceeds limit",
+            content_length
+        )));
+    }
+    
+    let bytes = response.bytes().await
+        .map_err(|e| AppError::BadRequest(format!("Failed to read image data: {}", e)))?;
+    
+    if bytes.len() > config.server.max_body_size.min(MAX_IMAGE_SIZE) {
+        return Err(AppError::PayloadTooLarge(format!(
+            "Image size {} exceeds limit",
+            bytes.len()
+        )));
+    }
+    
+    Ok(bytes.to_vec())
+}
 
-    let processed_image = execute_pipeline(dynamic_image, operations_spec.clone())?; // Clone spec for later inspection
-
-    // Determine output format
-    let mut output_image_format = ImageFormat::Png; // Default
-    let mut final_content_type = output_image_format.to_mime_type();
-
-    // Check the last operation for a successful 'Convert' to determine output format
-    // We iterate specs again because execute_pipeline consumes it if not cloned, 
-    // and we need the original spec to check its `params`.
-    for spec in operations_spec.iter().rev() { // Iterate in reverse to find the *last* convert
+fn determine_output_format(operations_spec: &[PipelineOperationSpec], original_format: ImageFormat) -> ImageFormat {
+    // Check the last convert operation to determine output format
+    for spec in operations_spec.iter().rev() {
         if spec.operation == SupportedOperation::Convert {
-            // If a convert operation failed and was ignored, we wouldn't reach here
-            // unless it was the *last* operation. execute_pipeline handles internal errors.
-            // So, if we are here, any convert op we find *should* have been part of the success.
-            match from_value::<FormatConversionParams>(spec.params.clone()) {
-                Ok(convert_params) => {
-                    match convert_params.format.to_lowercase().as_str() {
-                        "png" => output_image_format = ImageFormat::Png,
-                        "jpeg" | "jpg" => output_image_format = ImageFormat::Jpeg,
-                        "gif" => output_image_format = ImageFormat::Gif,
-                        "webp" => output_image_format = ImageFormat::WebP,
-                        "bmp" => output_image_format = ImageFormat::Bmp,
-                        "tiff" | "tif" => output_image_format = ImageFormat::Tiff,
-                        // Add other formats supported by the `image` crate as needed
-                        _ => {
-                            // Log a warning if format is not recognized, but use default.
-                            // The pipeline executor should have already validated this if it was critical.
-                            tracing::warn!("Unsupported format in final convert op: {}, defaulting.", convert_params.format);
-                            // Stick to previous default (or PNG)
-                        }
+            if let Ok(convert_params) = from_value::<FormatConversionParams>(spec.params.clone()) {
+                match convert_params.format.to_lowercase().as_str() {
+                    "png" => return ImageFormat::Png,
+                    "jpeg" | "jpg" => return ImageFormat::Jpeg,
+                    "gif" => return ImageFormat::Gif,
+                    "webp" => return ImageFormat::WebP,
+                    "bmp" => return ImageFormat::Bmp,
+                    "tiff" | "tif" => return ImageFormat::Tiff,
+                    _ => {
+                        tracing::warn!("Unsupported format in convert operation: {}, using original format", convert_params.format);
+                        return original_format;
                     }
-                    final_content_type = output_image_format.to_mime_type();
-                    break; // Found the last convert operation
-                }
-                Err(e) => {
-                    // This case should ideally not happen if the pipeline executor validated params.
-                    tracing::error!("Failed to parse params for a successful Convert operation: {}. Defaulting format.", e);
-                    break; // Stop trying if params are corrupt for a supposedly successful op
                 }
             }
         }
     }
-
-    let mut final_image_bytes = Vec::new();
-    processed_image
-        .write_to(&mut Cursor::new(&mut final_image_bytes), output_image_format)
-        .map_err(|e| AppError::ImageProcessingError(format!("Failed to write processed image: {}", e)))?;
-
-    Ok(Response::builder()
-        .header("Content-Type", final_content_type)
-        .body(axum::body::Body::from(final_image_bytes))
-        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?)
+    
+    // Default to original format if no convert operation found
+    original_format
 }
 
-// TODO:
-// - Add support for GET requests with URL/file params for image source.
-// - Consider content negotiation for output format as an alternative or addition.
-// - Unit/Integration tests for this handler.
-// - Default to original image format if no convert op, instead of always PNG.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::server::ServerConfig;
+    use serde_json::json;
+
+    fn create_test_config() -> Arc<Config> {
+        Arc::new(Config {
+            server: ServerConfig {
+                max_body_size: 1024 * 1024, // 1MB for tests
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn test_determine_output_format_with_convert() {
+        let operations = vec![
+            PipelineOperationSpec {
+                operation: SupportedOperation::Resize,
+                params: json!({"width": 100, "height": 100}),
+                ignore_failure: false,
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Convert,
+                params: json!({"format": "jpeg", "quality": 85}),
+                ignore_failure: false,
+            },
+        ];
+        
+        let result = determine_output_format(&operations, ImageFormat::Png);
+        assert_eq!(result, ImageFormat::Jpeg);
+    }
+
+    #[test]
+    fn test_determine_output_format_without_convert() {
+        let operations = vec![
+            PipelineOperationSpec {
+                operation: SupportedOperation::Resize,
+                params: json!({"width": 100, "height": 100}),
+                ignore_failure: false,
+            },
+        ];
+        
+        let result = determine_output_format(&operations, ImageFormat::Png);
+        assert_eq!(result, ImageFormat::Png);
+    }
+
+    #[test]
+    fn test_determine_output_format_multiple_converts() {
+        let operations = vec![
+            PipelineOperationSpec {
+                operation: SupportedOperation::Convert,
+                params: json!({"format": "png"}),
+                ignore_failure: false,
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Resize,
+                params: json!({"width": 100, "height": 100}),
+                ignore_failure: false,
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Convert,
+                params: json!({"format": "webp"}),
+                ignore_failure: false,
+            },
+        ];
+        
+        // Should use the last convert operation
+        let result = determine_output_format(&operations, ImageFormat::Jpeg);
+        assert_eq!(result, ImageFormat::WebP);
+    }
+}

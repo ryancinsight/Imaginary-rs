@@ -22,6 +22,17 @@ pub struct Config {
     pub data: Vec<u8>,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            server: ServerConfig::default(),
+            security: SecurityConfig::default(),
+            storage: StorageConfig::default(),
+            data: default_data(),
+        }
+    }
+}
+
 fn default_data() -> Vec<u8> {
     b"example data".to_vec()
 }

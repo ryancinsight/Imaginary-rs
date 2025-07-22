@@ -55,6 +55,7 @@ sha2 = "0.10.9"
 hmac = "0.12.1"
 rand = "0.8.5"  # Downgraded from 0.9.1 for compatibility
 http = "1.3.1"
+reqwest = { version = "0.12", features = ["json"] }
 
 # Performance optimizations
 cached = "0.44.0"  # Downgraded from 0.55.1 for compatibility
