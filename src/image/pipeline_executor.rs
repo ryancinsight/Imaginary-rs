@@ -2,7 +2,7 @@ use super::operations;
 use super::params::{self, Validate};
 use super::pipeline_types::{PipelineOperationSpec, SupportedOperation};
 use crate::http::errors::{AppError, ImageError};
-use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
+use image::DynamicImage;
 use serde_json::Value;
 
 /// Executes a sequence of image operations (pipeline) on the given image.
@@ -19,7 +19,7 @@ pub fn execute_pipeline(
     operations_spec: Vec<PipelineOperationSpec>,
 ) -> Result<DynamicImage, AppError> {
     for spec in operations_spec {
-        let operation_name = spec.operation.clone(); // For logging/error messages
+        let operation_name = spec.operation; // For logging/error messages
         tracing::info!(operation = ?operation_name, params = ?spec.params, "Starting operation");
         match execute_single_operation(image.clone(), &spec) {
             Ok(processed_image) => {
@@ -138,7 +138,7 @@ fn execute_single_operation(
                 AppError::BadRequest(format!("Invalid Watermark params: {}", e))
             })?;
             operations::watermark::watermark(&image, &params)
-                .map_err(|e| AppError::ImageProcessingError(e))
+                .map_err(AppError::ImageProcessingError)
         }
         SupportedOperation::WatermarkImage => {
             let params: params::WatermarkImageParams = parse_params(&spec.params, "WatermarkImage")?;
@@ -174,7 +174,7 @@ fn parse_params<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::DynamicImage;
+    use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
     use serde_json::json;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {

@@ -12,6 +12,7 @@ pub struct StorageConfig {
     #[serde(default = "default_temp_dir")]
     pub temp_dir: PathBuf,
     #[serde(default = "default_max_cache_size")]
+    #[allow(dead_code)]
     pub max_cache_size: usize,
 }
 
@@ -79,7 +80,7 @@ pub fn check_cached_metadata(
 }
 
 // Generate operation hash
-pub fn generate_operation_hash(image_path: &PathBuf, operation: &str, params: &str) -> Result<String> {
+pub fn generate_operation_hash(image_path: &Path, operation: &str, params: &str) -> Result<String> {
     let mut hasher = Sha256::new();
     
     // Hash the image content
@@ -95,17 +96,17 @@ pub fn generate_operation_hash(image_path: &PathBuf, operation: &str, params: &s
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-pub fn cache_result(image_path: &PathBuf, operation: &str, params: &str, _result_path: &PathBuf) {
+pub fn cache_result(image_path: &Path, operation: &str, params: &str, _result_path: &Path) {
     if let Ok(hash) = generate_operation_hash(image_path, operation, params) {
-        let cached = get_cached_result(image_path.clone(), operation, params);
+        let cached = get_cached_result(image_path.to_path_buf(), operation, params);
         if cached.is_none() {
             info!("Cached result for operation: {}", hash);
         }
     }
 }
 
-pub fn get_result(image_path: &PathBuf, operation: &str, params: &str) -> Option<PathBuf> {
-    get_cached_result(image_path.clone(), operation, params)
+pub fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<PathBuf> {
+    get_cached_result(image_path.to_path_buf(), operation, params)
 }
 
 // Cleanup old cache entries
@@ -113,13 +114,11 @@ pub fn get_result(image_path: &PathBuf, operation: &str, params: &str) -> Option
 pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Result<()> {
     let now = std::time::SystemTime::now();
     
-    for entry in fs::read_dir(temp_dir)? {
-        if let Ok(entry) = entry {
-            if let Ok(metadata) = entry.metadata() {
-                if let Ok(created) = metadata.created() {
-                    if now.duration_since(created).unwrap_or_default() > max_age {
-                        let _ = fs::remove_file(entry.path());
-                    }
+    for entry in fs::read_dir(temp_dir)?.flatten() {
+        if let Ok(metadata) = entry.metadata() {
+            if let Ok(created) = metadata.created() {
+                if now.duration_since(created).unwrap_or_default() > max_age {
+                    let _ = fs::remove_file(entry.path());
                 }
             }
         }

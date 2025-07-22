@@ -26,7 +26,7 @@ use crate::security::{ApiKey, ApiSalt};
 use tokio::sync::Semaphore;
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
-use axum::ServiceExt;
+
 use axum_server::Server;
 
 #[tokio::main]
@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let concurrency: u32 = *matches.get_one::<u32>("concurrency").unwrap_or(&0);
-    let semaphore = if concurrency > 0 {
+    let _semaphore = if concurrency > 0 {
         Some(Arc::new(Semaphore::new(concurrency as usize)))
     } else {
         None
@@ -134,8 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("TLS mode is 'signed' but certificate or key not found at specified paths.\nCert: {}\nKey: {}", cert_path, key_path);
                 std::process::exit(1);
             }
-        } else {
-            if !cert_exists || !key_exists {
+        } else if !cert_exists || !key_exists {
                 // Generate self-signed cert
                 let subj = "/CN=localhost";
                 let output = std::process::Command::new("openssl")
@@ -151,7 +150,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     std::process::exit(1);
                 }
                 println!("Generated self-signed certificate at {} and {}", cert_path, key_path);
-            }
         }
         // Start HTTPS/2 on 3000
         let addr_https = SocketAddr::from(([0, 0, 0, 0], 3000));

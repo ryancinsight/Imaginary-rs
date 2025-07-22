@@ -9,9 +9,13 @@ use tracing::info;
 
 #[derive(Debug)]
 pub enum AppInfo {
+    #[allow(dead_code)]
     SecurityConfigSecure,
+    #[allow(dead_code)]
     SecurityConfigNotSecure,
+    #[allow(dead_code)]
     OriginAllowed(String),
+    #[allow(dead_code)]
     OriginNotAllowed(String),
     GeneratedSignature(String),
     ValidatedSignature(bool),
@@ -20,7 +24,9 @@ pub enum AppInfo {
 
 #[derive(Debug)]
 pub enum ImageInfo {
+    #[allow(dead_code)]
     ImageProcessedSuccessfully(String),
+    #[allow(dead_code)]
     ImageConvertedSuccessfully(String),
 }
 

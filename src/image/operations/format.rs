@@ -3,7 +3,7 @@
 //! This module provides functions for format conversion and autorotation.
 
 use crate::http::errors::AppError;
-use image::{DynamicImage, ImageFormat, GenericImageView};
+use image::{DynamicImage, ImageFormat};
 use std::io::Cursor;
 use crate::image::params::FormatConversionParams;
 
@@ -58,7 +58,7 @@ pub fn autorotate(image: DynamicImage) -> DynamicImage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba, ColorType};
+    use image::{DynamicImage, ImageBuffer, Rgba, ColorType, GenericImageView};
     use crate::image::params::FormatConversionParams;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {

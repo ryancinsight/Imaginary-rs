@@ -36,6 +36,7 @@ pub async fn process_image(
         })?;
     }
 
+    #[allow(clippy::never_loop)]
     while let Some(field) = multipart.next_field().await.map_err(|e| AppError::MultipartError(e.to_string()))? {
         // Early metadata check using the helper function
         // The operation and params for check_early_cache are hardcoded here, reflecting its original usage.

@@ -3,7 +3,6 @@
 //! This module provides functions for grayscale conversion, brightness/contrast adjustment, sharpening, and blurring.
 
 use image::DynamicImage;
-use image::GenericImageView;
 use crate::image::params::{BlurParams};
 
 /// Convert an image to grayscale.
@@ -78,6 +77,7 @@ pub fn blur(image: DynamicImage, params: &BlurParams) -> DynamicImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::GenericImageView;
     use image::{DynamicImage, ImageBuffer, Rgba};
     use crate::image::params::BlurParams;
 

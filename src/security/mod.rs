@@ -135,10 +135,12 @@ impl SecurityConfig {
         self.salt = Some(salt);
     }
     /// Get allowed origins
+    #[allow(dead_code)]
     pub fn allowed_origins(&self) -> &[String] {
         &self.allowed_origins
     }
     /// Set allowed origins
+    #[allow(dead_code)]
     pub fn set_allowed_origins(&mut self, origins: Vec<String>) {
         self.allowed_origins = origins;
     }
@@ -155,6 +157,7 @@ impl SecurityConfig {
 
     /// Generates a new random API key if one is not already set or is empty.
     /// Returns a clone of the (potentially newly generated) key.
+    #[allow(dead_code)]
     pub fn generate_api_key(&mut self) -> ApiKey {
         if self.key.as_ref().map_or(true, |k| k.0.is_empty()) {
             let generated_key_string: String = thread_rng()
@@ -188,6 +191,7 @@ impl SecurityConfig {
     }
 
     /// Checks if both key and salt are set (basic check, not length/content).
+    #[allow(dead_code)]
     pub fn is_secure(&self) -> bool {
         self.key.is_some() && self.salt.is_some()
     }
@@ -213,6 +217,7 @@ impl SecurityConfig {
 
 /// Generate a system-unique secret (SHA256 of username, hostname, and OS info)
 /// Returns a String, to be wrapped in ApiKey or ApiSalt by the caller.
+#[allow(dead_code)]
 pub(crate) fn generate_local_machine_secret() -> String {
     let username = env::var("USERNAME").or_else(|_| env::var("USER")).unwrap_or_default();
     let hostname = get_hostname().unwrap_or_default();
@@ -224,6 +229,7 @@ pub(crate) fn generate_local_machine_secret() -> String {
     hex::encode(hasher.finalize())
 }
 
+#[allow(dead_code)]
 fn get_hostname() -> Option<String> {
     // Try std::env, then fallback to hostname command
     env::var("COMPUTERNAME").ok()
@@ -234,6 +240,7 @@ fn get_hostname() -> Option<String> {
         .map(|s| s.trim().to_string())
 }
 
+#[allow(dead_code)]
 fn get_os_info() -> Option<String> {
     #[cfg(target_os = "windows")]
     { Some("windows".to_string()) }

@@ -5,15 +5,18 @@ use crate::http::errors;
 use std::fs::File;
 use image::io::Reader as ImageReader;
 
+#[allow(dead_code)]
 pub fn load_image_from_path(path: &str) -> Result<DynamicImage, image::ImageError> {
     ImageReader::open(path)?.decode()
 }
 
+#[allow(dead_code)]
 pub fn save_image_to_path(image: &DynamicImage, path: &str, format: ImageFormat) -> Result<(), image::ImageError> {
     let mut output = File::create(path)?;
     image.write_to(&mut output, format)
 }
 
+#[allow(dead_code)]
 pub fn get_image_dimensions(image_bytes: &[u8]) -> Option<(u32, u32)> {
     if let Ok(img) = image::load_from_memory(image_bytes) {
         Some(img.dimensions())
@@ -22,15 +25,18 @@ pub fn get_image_dimensions(image_bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_image_format(image_bytes: &[u8]) -> Option<ImageFormat> {
     image::guess_format(image_bytes).ok()
 }
 
+#[allow(dead_code)]
 pub fn load_image_from_bytes(image_bytes: &[u8]) -> Result<DynamicImage, String> {
     image::load_from_memory(image_bytes)
         .map_err(|e| format!("Failed to load image: {}", e))
 }
 
+#[allow(dead_code)]
 pub fn save_image_to_bytes(image: &DynamicImage, format: ImageFormat) -> Result<Vec<u8>, String> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
@@ -40,6 +46,7 @@ pub fn save_image_to_bytes(image: &DynamicImage, format: ImageFormat) -> Result<
 }
 
 // Add a new function to validate parameters
+#[allow(dead_code)]
 pub fn validate_params<T: Validate>(params: &T) -> Result<(), errors::ImageError> {
     params.validate()
 }

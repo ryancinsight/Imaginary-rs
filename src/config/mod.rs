@@ -87,7 +87,7 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<()
     if let Some(port) = matches.get_one::<String>("port") {
         let port_val = port.parse::<i64>()
             .map_err(|_| format!("Invalid port value: {}", port))?;
-        if port_val < 1 || port_val > 65535 {
+        if !(1..=65535).contains(&port_val) {
             return Err(format!("Port must be between 1 and 65535, got: {}", port_val));
         }
         config["server"]["port"] = Value::Integer(port_val);

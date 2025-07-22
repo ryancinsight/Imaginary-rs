@@ -3,7 +3,7 @@
 //! This module provides functions for overlaying images and drawing text.
 
 use crate::http::errors::AppError;
-use image::{DynamicImage, GenericImage, GenericImageView};
+use image::{DynamicImage, GenericImage};
 use rusttype::{Font, Scale, point};
 use image::Rgba;
 
@@ -23,6 +23,7 @@ use image::Rgba;
 /// # let base = DynamicImage::new_rgb8(100, 100);
 /// # let overlay_img = DynamicImage::new_rgb8(50, 50);
 /// let result = overlay(base, overlay_img, 10, 10).unwrap();
+#[allow(dead_code)]
 pub(crate) fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, y: u32) -> Result<DynamicImage, AppError> {
     let mut img = image.clone();
     img.copy_from(&overlay_image, x, y).map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
@@ -30,6 +31,7 @@ pub(crate) fn overlay(image: DynamicImage, overlay_image: DynamicImage, x: u32, 
 }
 
 /// Draws text onto the image at the specified position and font size.
+#[allow(dead_code)]
 pub(crate) fn draw_text(
     image: DynamicImage,
     text: &str,
@@ -66,7 +68,7 @@ pub(crate) fn draw_text(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba};
+    use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(

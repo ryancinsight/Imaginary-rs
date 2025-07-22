@@ -26,7 +26,7 @@ use tracing::{info, Level};
 use axum::{
     Router,
     routing::{get, post},
-    http::{Request, StatusCode, HeaderName, Response},
+    http::{StatusCode, HeaderName, Response},
     body::Body,
     BoxError,
     Json,
@@ -46,7 +46,6 @@ use crate::config::Config;
 use crate::http::handlers::health_handler::health_check;
 use crate::http::errors::AppError;
 use serde_json::json;
-use std::convert::Infallible;
 use tokio::net::TcpListener;
 use crate::http::handlers::legacy_process_handler::process_image;
 use crate::http::handlers::pipeline_handler::process_pipeline;
@@ -58,14 +57,18 @@ pub mod middleware;
 #[derive(Debug, Deserialize, Default)]
 pub struct ServerConfig {
     #[serde(default = "default_port")]
+    #[allow(dead_code)]
     pub port: u16,
     #[serde(default = "default_host")]
     pub host: String,
     #[serde(default = "default_read_timeout")]
+    #[allow(dead_code)]
     pub read_timeout: u64,
     #[serde(default = "default_write_timeout")]
+    #[allow(dead_code)]
     pub write_timeout: u64,
     #[serde(default = "default_concurrency")]
+    #[allow(dead_code)]
     pub concurrency: usize,
     #[serde(default = "default_max_body_size")]
     pub max_body_size: usize,
@@ -80,7 +83,7 @@ fn default_max_body_size() -> usize { 10 * 1024 * 1024 }
 
 pub fn create_router(config: Arc<Config>) -> Router {
     let common_middleware = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid::default()))
+        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid))
         .layer(TraceLayer::new_for_http()
             .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
             .on_request(DefaultOnRequest::new().level(Level::INFO))
@@ -90,17 +93,16 @@ pub fn create_router(config: Arc<Config>) -> Router {
         .layer(CompressionLayer::new())
         .layer(CatchPanicLayer::new());
 
-    let router_service = Router::new()
+    Router::new()
         .route("/health", get(health_check))
         .route("/process", post(process_image))
         .route("/pipeline", post(process_pipeline))
         .layer(common_middleware)
-        .with_state(config);
-
-    router_service
+        .with_state(config)
 }
 
 // Define the error handler as a standalone async function
+#[allow(dead_code)]
 async fn outer_error_handler(err: BoxError) -> Response<Body> {
     tracing::error!(error = %err, "Outer error handler (timeout or propagated)");
     if err.is::<tower::timeout::error::Elapsed>() {
@@ -110,6 +112,7 @@ async fn outer_error_handler(err: BoxError) -> Response<Body> {
     }
 }
 
+#[allow(dead_code)]
 pub async fn run_server(config: Arc<Config>, semaphore: Option<Arc<Semaphore>>) -> Result<(), AppError> {
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
@@ -123,7 +126,7 @@ pub async fn run_server(config: Arc<Config>, semaphore: Option<Arc<Semaphore>>) 
         .map_err(|e| AppError::InternalServerError(format!("Failed to convert std listener to tokio listener: {}", e)))?;
 
     let common_middleware = ServiceBuilder::new()
-        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid::default()))
+        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid))
         .layer(TraceLayer::new_for_http()
             .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
             .on_request(DefaultOnRequest::new().level(Level::INFO))
