@@ -188,13 +188,10 @@ fn is_safe_ip(ip: IpAddr) -> bool {
         }
         IpAddr::V6(ipv6) => {
             // Use De Morgan's law and simplified expressions
-            !(ipv6.is_loopback() || 
-              ipv6.is_multicast() || 
-              // Reject link-local
+           !(ipv6.is_loopback() ||
+              ipv6.is_multicast() ||
               ipv6.segments()[0] & 0xffc0 == 0xfe80 ||
-              // Reject unique local addresses (RFC 4193)
               ipv6.segments()[0] & 0xfe00 == 0xfc00 ||
-              // Reject documentation prefix (RFC 3849)
               (ipv6.segments()[0] == 0x2001 && ipv6.segments()[1] == 0x0db8))
         }
     }
