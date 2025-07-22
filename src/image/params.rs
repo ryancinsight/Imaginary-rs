@@ -169,6 +169,7 @@ pub struct SmartCropParams {
     #[serde(default = "default_dimension")]
     pub height: u32,
     #[serde(default)]
+    #[allow(dead_code)]
     pub quality: Option<u8>,
 }
 

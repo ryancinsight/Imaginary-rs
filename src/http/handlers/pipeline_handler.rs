@@ -87,10 +87,10 @@ pub async fn process_pipeline(
         .write_to(&mut Cursor::new(&mut final_image_bytes), output_format)
         .map_err(|e| AppError::ImageProcessingError(format!("Failed to write processed image: {}", e)))?;
 
-    Ok(Response::builder()
+    Response::builder()
         .header("Content-Type", content_type)
         .body(axum::body::Body::from(final_image_bytes))
-        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))?)
+        .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))
 }
 
 async fn handle_get_request(
@@ -169,33 +169,33 @@ async fn handle_post_request(
 fn is_safe_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ipv4) => {
-            // Reject private IPv4 ranges
-            !ipv4.is_private() &&
-            !ipv4.is_loopback() &&
-            !ipv4.is_link_local() &&
-            !ipv4.is_broadcast() &&
-            !ipv4.is_multicast() &&
-            // Reject carrier-grade NAT (RFC 6598)
-            !(ipv4.octets()[0] == 100 && (64..128).contains(&ipv4.octets()[1])) &&
-            // Reject cloud metadata service IPs
-            ipv4 != Ipv4Addr::new(169, 254, 169, 254) &&
-            // Reject test networks (RFC 5737)
-            !(ipv4.octets()[0] == 192 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 2) &&
-            !(ipv4.octets()[0] == 198 && ipv4.octets()[1] == 51 && ipv4.octets()[2] == 100) &&
-            !(ipv4.octets()[0] == 203 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 113) &&
-            // Reject documentation range (RFC 3849)
-            !((ipv4.octets()[0] == 192 && ipv4.octets()[1] == 88 && ipv4.octets()[2] == 99))
+            // Use De Morgan's law to simplify boolean expression
+            !(ipv4.is_private() || 
+              ipv4.is_loopback() || 
+              ipv4.is_link_local() || 
+              ipv4.is_broadcast() || 
+              ipv4.is_multicast() || 
+              // Reject carrier-grade NAT (RFC 6598)
+              (ipv4.octets()[0] == 100 && (64..128).contains(&ipv4.octets()[1])) ||
+              // Reject cloud metadata service IPs
+              ipv4 == Ipv4Addr::new(169, 254, 169, 254) ||
+              // Reject test networks (RFC 5737)
+              (ipv4.octets()[0] == 192 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 2) ||
+              (ipv4.octets()[0] == 198 && ipv4.octets()[1] == 51 && ipv4.octets()[2] == 100) ||
+              (ipv4.octets()[0] == 203 && ipv4.octets()[1] == 0 && ipv4.octets()[2] == 113) ||
+              // Reject documentation range (RFC 3849) - remove unnecessary parentheses
+              (ipv4.octets()[0] == 192 && ipv4.octets()[1] == 88 && ipv4.octets()[2] == 99))
         }
         IpAddr::V6(ipv6) => {
-            // Reject private IPv6 ranges
-            !ipv6.is_loopback() &&
-            !ipv6.is_multicast() &&
-            // Reject link-local
-            !(ipv6.segments()[0] & 0xffc0 == 0xfe80) &&
-            // Reject unique local addresses (RFC 4193)
-            !(ipv6.segments()[0] & 0xfe00 == 0xfc00) &&
-            // Reject documentation prefix (RFC 3849)
-            !(ipv6.segments()[0] == 0x2001 && ipv6.segments()[1] == 0x0db8)
+            // Use De Morgan's law and simplified expressions
+            !(ipv6.is_loopback() || 
+              ipv6.is_multicast() || 
+              // Reject link-local
+              ipv6.segments()[0] & 0xffc0 == 0xfe80 ||
+              // Reject unique local addresses (RFC 4193)
+              ipv6.segments()[0] & 0xfe00 == 0xfc00 ||
+              // Reject documentation prefix (RFC 3849)
+              (ipv6.segments()[0] == 0x2001 && ipv6.segments()[1] == 0x0db8))
         }
     }
 }
@@ -304,6 +304,7 @@ mod tests {
     use crate::server::ServerConfig;
     use serde_json::json;
 
+    #[allow(dead_code)]
     fn create_test_config() -> Arc<Config> {
         Arc::new(Config {
             server: ServerConfig {
@@ -374,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_is_safe_ip_private_ranges() {
-        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+        use std::net::{IpAddr, Ipv4Addr};
         
         // Private IPv4 ranges should be rejected
         assert!(!is_safe_ip(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1))));

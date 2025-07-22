@@ -20,8 +20,10 @@ pub enum AppError {
     #[error("Payload Too Large: {0}")]
     PayloadTooLarge(String),
     #[error("Rate Limit Exceeded: {0}")]
+    #[allow(dead_code)]
     RateLimitExceeded(String),
     #[error("Invalid Operation: {0}")]
+    #[allow(dead_code)]
     InvalidOperation(String),
     #[error("File System Error: {0}")]
     FileSystemError(String),
@@ -32,6 +34,7 @@ pub enum AppError {
 }
 
 #[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum ImageError {
     #[error("Invalid dimensions: {0}")]
     InvalidDimensions(String),

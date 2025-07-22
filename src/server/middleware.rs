@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::http::errors::AppError;
 use tokio::sync::Semaphore;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[allow(dead_code)] // For future logging middleware
 pub async fn log_request_and_errors(
@@ -71,6 +71,7 @@ pub async fn authenticate(
     next.run(req).await
 }
 
+#[allow(dead_code)]
 pub async fn concurrency_limit_middleware(
     axum::extract::State(semaphore): axum::extract::State<Arc<Semaphore>>,
     req: axum::http::Request<axum::body::Body>,

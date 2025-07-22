@@ -2,6 +2,7 @@ use image::DynamicImage;
 use crate::image::params::Validate;
 use crate::http::errors::ImageError;
 
+#[allow(dead_code)]
 pub fn process_image(params: impl Validate) -> Result<(), ImageError> {
     params.validate()?;
     // let mut pipeline = ImagePipeline::new();
@@ -13,7 +14,7 @@ pub fn process_image(params: impl Validate) -> Result<(), ImageError> {
     // )?;
 
     // Load your image here (this is just a placeholder)
-    let image = DynamicImage::new_rgb8(800, 600);
+    let _image = DynamicImage::new_rgb8(800, 600);
 
     // Process the image through the pipeline
     // let _processed_image = pipeline.process(image);

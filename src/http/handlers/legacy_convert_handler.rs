@@ -15,6 +15,7 @@ use crate::http::errors::AppError;
 use crate::image::operations;
 use crate::image::params::{FormatConversionParams, Validate};
 
+#[allow(dead_code)]
 pub async fn convert_image_format(
     State(config): State<Arc<Config>>,
     mut multipart: Multipart,
