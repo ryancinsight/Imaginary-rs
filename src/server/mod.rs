@@ -43,7 +43,7 @@ use tower_http::{
 use tower::ServiceBuilder;
 use tower::util::BoxCloneService;
 use crate::config::Config;
-use crate::http::handlers::health_handler::health_check;
+use crate::http::handlers::health_handler::{health_check, readiness_check, metrics};
 use crate::http::errors::AppError;
 use serde_json::json;
 use tokio::net::TcpListener;
@@ -95,6 +95,8 @@ pub fn create_router(config: Arc<Config>) -> Router {
 
     Router::new()
         .route("/health", get(health_check))
+        .route("/ready", get(readiness_check))
+        .route("/metrics", get(metrics))
         .route("/process", post(process_image))
         .route("/pipeline", post(process_pipeline))
         .layer(common_middleware)

@@ -42,6 +42,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments
     let matches = cli::build_cli().get_matches();
 
+    // Handle health check command
+    if matches.get_flag("health-check") {
+        return perform_health_check().await;
+    }
+
+    // Initialize health metrics
+    crate::http::handlers::health_handler::init_health_metrics();
+
     // Load configuration
     let config = config::load_config(&matches)?;
 
@@ -192,4 +200,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap();
     }
     Ok(())
+}
+
+/// Perform a health check by making an HTTP request to the health endpoint
+async fn perform_health_check() -> Result<(), Box<dyn std::error::Error>> {
+    use reqwest;
+    
+    let client = reqwest::Client::new();
+    let url = "http://127.0.0.1:8080/health";
+    
+    match client.get(url).timeout(std::time::Duration::from_secs(5)).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                println!("Health check: OK");
+                std::process::exit(0);
+            } else {
+                eprintln!("Health check failed: HTTP {}", response.status());
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            eprintln!("Health check failed: {}", e);
+            std::process::exit(1);
+        }
+    }
 }

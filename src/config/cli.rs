@@ -144,4 +144,10 @@ pub fn build_cli() -> Command {
                 .help("Path to TLS private key file")
                 .default_value("key.pem"),
         )
+        .arg(
+            Arg::new("health-check")
+                .long("health-check")
+                .help("Perform health check and exit")
+                .action(clap::ArgAction::SetTrue),
+        )
 }
