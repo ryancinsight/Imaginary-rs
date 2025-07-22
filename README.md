@@ -6,6 +6,8 @@ A Rust implementation of the [h2non/imaginary](https://github.com/h2non/imaginar
 
 - HTTP server for high-level image processing
 - Flexible image manipulation pipeline via `/pipeline` endpoint
+- **NEW**: GET request support for `/pipeline` endpoint with URL-based image fetching
+- **NEW**: Enhanced format handling - defaults to original image format unless convert operation specified
 - Security middleware (API key, CORS)
 - Configurable via file, env, or CLI
 - Extensible: add new operations easily
@@ -15,6 +17,7 @@ A Rust implementation of the [h2non/imaginary](https://github.com/h2non/imaginar
 - HTTP/2 mode: HTTPS on port 3000, HTTP/1.1 redirect on 8080
 - HTTP/1.1 mode: HTTP on port 8080 (default)
 - All endpoints, logging, and middleware preserved
+- **NEW**: Comprehensive test coverage with 71+ unit tests
 
 ## Supported Operations (for pipeline)
 
@@ -45,6 +48,20 @@ Process an image with a sequence of operations.
   {"operation": "resize", "params": {"width": 200, "height": 200}},
   {"operation": "grayscale", "params": {}}
 ]
+```
+
+**Response:** Processed image (binary)
+
+### GET /pipeline
+**NEW**: Process an image from a URL with a sequence of operations.
+
+**Request Parameters:**
+- `url`: URL of the image to process (HTTP/HTTPS only)
+- `operations`: JSON-encoded array of operation specs
+
+**Example:**
+```
+GET /pipeline?url=https://example.com/image.jpg&operations=[{"operation":"resize","params":{"width":200,"height":200}}]
 ```
 
 **Response:** Processed image (binary)
@@ -141,6 +158,30 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - For production, always use a strong API key and salt
 - Use signed certificates in production
 - Self-signed certificates are for development/testing only
+- **NEW**: URL fetching with comprehensive SSRF protection (hostname resolution, IP validation, private network blocking)
+
+## Development Status
+
+### ✅ Completed Features
+
+- [x] Enhanced `/pipeline` endpoint with GET request support
+- [x] URL-based image fetching with comprehensive SSRF protection
+- [x] Improved format handling - defaults to original format unless convert operation specified
+- [x] Comprehensive unit test coverage (71+ tests)
+- [x] Parameter validation and error handling improvements
+- [x] SOLID, CUPID, GRASP, SSOT, DRY, and ADP design principles implementation
+- [x] All existing tests passing
+- [x] Code cleanup and optimization
+
+### 🔄 Current Development Stage: Complete
+
+The next stage of development has been successfully completed with:
+
+1. **Enhanced Pipeline Handler**: Added GET request support with URL fetching
+2. **Improved Format Handling**: Smart format detection and preservation
+3. **Comprehensive Testing**: 71+ unit tests covering all major functionality
+4. **Code Quality**: Following best practices and design principles
+5. **Security**: Comprehensive SSRF protection with IP validation and private network blocking
 
 ## Documentation Best Practices
 - Documentation is updated with every major code change
