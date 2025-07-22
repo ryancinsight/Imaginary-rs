@@ -1429,6 +1429,7 @@ dependencies = [
  "image",
  "imageproc",
  "num_cpus",
+ "once_cell",
  "pretty_assertions",
  "rand 0.8.5",
  "rayon",
@@ -1446,6 +1447,7 @@ dependencies = [
  "tower-http 0.5.2",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

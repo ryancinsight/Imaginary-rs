@@ -158,14 +158,14 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - For production, always use a strong API key and salt
 - Use signed certificates in production
 - Self-signed certificates are for development/testing only
-- **NEW**: URL fetching is restricted to HTTP/HTTPS schemes only for security
+- **NEW**: URL fetching with comprehensive SSRF protection (hostname resolution, IP validation, private network blocking)
 
 ## Development Status
 
 ### ✅ Completed Features
 
 - [x] Enhanced `/pipeline` endpoint with GET request support
-- [x] URL-based image fetching with security validation (HTTP/HTTPS only)
+- [x] URL-based image fetching with comprehensive SSRF protection
 - [x] Improved format handling - defaults to original format unless convert operation specified
 - [x] Comprehensive unit test coverage (71+ tests)
 - [x] Parameter validation and error handling improvements
@@ -181,7 +181,7 @@ The next stage of development has been successfully completed with:
 2. **Improved Format Handling**: Smart format detection and preservation
 3. **Comprehensive Testing**: 71+ unit tests covering all major functionality
 4. **Code Quality**: Following best practices and design principles
-5. **Security**: URL validation and size limits for external image fetching
+5. **Security**: Comprehensive SSRF protection with IP validation and private network blocking
 
 ## Documentation Best Practices
 - Documentation is updated with every major code change
