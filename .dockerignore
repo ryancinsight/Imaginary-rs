@@ -1,0 +1,52 @@
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Build artifacts
+target/
+*.log
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation and development files
+*.md
+!README.md
+docs/
+examples/
+
+# Test files and artifacts
+test.html
+images_test/
+*.test
+
+# Docker files (except Dockerfile)
+docker-compose*.yml
+
+# CI/CD files
+.github/
+
+# Temporary and cache files
+*.cache
+node_modules/
+.npm/
+
+# Environment and secrets
+.env*
+*.pem
+*.key
+*.crt
+
+# Backup files
+*.bak
+*.backup

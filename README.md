@@ -160,6 +160,34 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - Self-signed certificates are for development/testing only
 - **NEW**: URL fetching with comprehensive SSRF protection (hostname resolution, IP validation, private network blocking)
 
+## Quick Deployment
+
+### Docker (Development)
+```bash
+# Build and run with Docker
+docker build -t imaginary-rs .
+docker run -p 8080:8080 imaginary-rs
+
+# Or use Docker Compose
+docker-compose up
+```
+
+### Kubernetes (Production)
+```bash
+# Deploy to Kubernetes
+kubectl apply -f k8s/
+
+# Check deployment status
+kubectl get pods -n imaginary-rs
+```
+
+### Health Endpoints
+- `/health` - Basic health check
+- `/ready` - Readiness check with system validation  
+- `/metrics` - Prometheus-compatible metrics
+
+For complete deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Development Status
 
 ### ✅ Completed Features
@@ -167,23 +195,28 @@ Send a POST request to `/pipeline` with a multipart form containing:
 - [x] Enhanced `/pipeline` endpoint with GET request support
 - [x] URL-based image fetching with comprehensive SSRF protection
 - [x] Improved format handling - defaults to original format unless convert operation specified
-- [x] Comprehensive unit test coverage (71+ tests)
+- [x] Comprehensive unit test coverage (84 tests: 74 unit + 10 integration)
 - [x] Parameter validation and error handling improvements
 - [x] SOLID, CUPID, GRASP, SSOT, DRY, and ADP design principles implementation
-- [x] All existing tests passing
-- [x] Code cleanup and optimization
+- [x] Production-ready containerization with multi-stage Docker builds
+- [x] Complete CI/CD pipeline with GitHub Actions
+- [x] Comprehensive observability with health endpoints and metrics
+- [x] Infrastructure as Code with Kubernetes and Docker Compose
+- [x] Security hardening and vulnerability scanning
+- [x] Enterprise-grade deployment documentation
 
-### ✅ Current Development Stage: Code Quality Phase Complete
+### ✅ Current Development Stage: Production Deployment & Infrastructure Phase Complete
 
-The latest code quality and performance optimization phase has been successfully completed with:
+The latest production deployment and infrastructure phase has been successfully completed with:
 
-1. **Zero Clippy Warnings**: Achieved 100% clean clippy build with `-D warnings`
-2. **Code Quality Excellence**: Applied SOLID, CUPID, GRASP, ADP, SSOT, KISS, DRY, YAGNI principles
-3. **Memory Optimization**: Removed unnecessary cloning, improved path handling
-4. **Boolean Logic Simplification**: Applied De Morgan's laws for cleaner expressions
-5. **Import Hygiene**: Cleaned imports, organized test-only imports properly
-6. **Performance**: Maintained all functionality with improved efficiency
-7. **Test Coverage**: All 84 tests passing (74 unit + 10 integration tests)
+1. **Enhanced Containerization**: Multi-stage Dockerfile with distroless base image and security hardening
+2. **CI/CD Pipeline**: Complete GitHub Actions workflow with automated testing, building, and security scanning
+3. **Observability**: Comprehensive health endpoints (/health, /ready, /metrics) and structured logging
+4. **Infrastructure as Code**: Complete Kubernetes manifests and Docker Compose configurations
+5. **Security Hardening**: Non-root containers, vulnerability scanning, secrets management
+6. **Production Documentation**: Comprehensive deployment guides and operations runbooks
+7. **Enterprise Ready**: Production-grade deployment capabilities with monitoring and automation
+8. **Test Coverage**: All 84 tests passing (74 unit + 10 integration tests)
 
 ## Documentation Best Practices
 - Documentation is updated with every major code change

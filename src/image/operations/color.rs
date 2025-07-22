@@ -2,8 +2,8 @@
 //!
 //! This module provides functions for grayscale conversion, brightness/contrast adjustment, sharpening, and blurring.
 
+use crate::image::params::BlurParams;
 use image::DynamicImage;
-use crate::image::params::{BlurParams};
 
 /// Convert an image to grayscale.
 ///
@@ -53,9 +53,7 @@ pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
 /// # Returns
 /// A new `DynamicImage` sharpened using a 3x3 kernel.
 pub fn sharpen(image: DynamicImage) -> DynamicImage {
-    let sharpen_kernel: [f32; 9] = [-1.0, -1.0, -1.0,
-                                    -1.0,  9.0, -1.0,
-                                    -1.0, -1.0, -1.0];
+    let sharpen_kernel: [f32; 9] = [-1.0, -1.0, -1.0, -1.0, 9.0, -1.0, -1.0, -1.0, -1.0];
     image.filter3x3(&sharpen_kernel)
 }
 
@@ -77,9 +75,9 @@ pub fn blur(image: DynamicImage, params: &BlurParams) -> DynamicImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::image::params::BlurParams;
     use image::GenericImageView;
     use image::{DynamicImage, ImageBuffer, Rgba};
-    use crate::image::params::BlurParams;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -120,8 +118,11 @@ mod tests {
     #[test]
     fn test_blur() {
         let img = create_test_image(100, 100);
-        let params = BlurParams { sigma: 2.0, minampl: None };
+        let params = BlurParams {
+            sigma: 2.0,
+            minampl: None,
+        };
         let blurred = blur(img, &params);
         assert_eq!(blurred.dimensions(), (100, 100));
     }
-} 
+}

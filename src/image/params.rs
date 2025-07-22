@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use crate::http::errors::ImageError;
+use serde::Deserialize;
 
 /// Trait for validating operation parameters. Implemented by all parameter structs.
 pub trait Validate {
@@ -18,12 +18,16 @@ pub struct ResizeParams {
     pub height: u32,
 }
 
-fn default_dimension() -> u32 { 100 }
+fn default_dimension() -> u32 {
+    100
+}
 
 impl Validate for ResizeParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            Err(ImageError::InvalidDimensions("Width and height must be greater than zero.".to_string()))
+            Err(ImageError::InvalidDimensions(
+                "Width and height must be greater than zero.".to_string(),
+            ))
         } else {
             Ok(())
         }
@@ -38,12 +42,16 @@ pub struct RotateParams {
     pub degrees: f32,
 }
 
-fn default_degrees() -> f32 { 90.0 }
+fn default_degrees() -> f32 {
+    90.0
+}
 
 impl Validate for RotateParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.degrees < 0.0 || self.degrees >= 360.0 {
-            Err(ImageError::InvalidDegrees("Degrees must be between 0 and 360.".to_string()))
+            Err(ImageError::InvalidDegrees(
+                "Degrees must be between 0 and 360.".to_string(),
+            ))
         } else {
             Ok(())
         }
@@ -68,7 +76,9 @@ pub struct CropParams {
 impl Validate for CropParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            Err(ImageError::InvalidDimensions("Width and height must be greater than zero.".to_string()))
+            Err(ImageError::InvalidDimensions(
+                "Width and height must be greater than zero.".to_string(),
+            ))
         } else {
             Ok(())
         }
@@ -93,31 +103,45 @@ pub struct WatermarkParams {
     #[serde(default = "default_font_size")]
     pub font_size: u32,
     #[serde(default = "default_color")]
-    pub color: [u8; 3],  // RGB color
+    pub color: [u8; 3], // RGB color
     #[serde(default)]
-    pub x: Option<u32>,  // If None, use position for automatic placement
+    pub x: Option<u32>, // If None, use position for automatic placement
     #[serde(default)]
     pub y: Option<u32>,
 }
 
-fn default_opacity() -> f32 { 0.5 }
-fn default_font_size() -> u32 { 24 }
-fn default_color() -> [u8; 3] { [255, 255, 255] }  // White
+fn default_opacity() -> f32 {
+    0.5
+}
+fn default_font_size() -> u32 {
+    24
+}
+fn default_color() -> [u8; 3] {
+    [255, 255, 255]
+} // White
 
 impl Validate for WatermarkParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.opacity < 0.0 || self.opacity > 1.0 {
-            return Err(ImageError::InvalidOpacity("Opacity must be between 0.0 and 1.0".to_string()));
+            return Err(ImageError::InvalidOpacity(
+                "Opacity must be between 0.0 and 1.0".to_string(),
+            ));
         }
         if self.text.is_empty() {
-            return Err(ImageError::InvalidParameters("Watermark text cannot be empty".to_string()));
+            return Err(ImageError::InvalidParameters(
+                "Watermark text cannot be empty".to_string(),
+            ));
         }
         if self.font_size == 0 {
-            return Err(ImageError::InvalidParameters("Font size must be > 0".to_string()));
+            return Err(ImageError::InvalidParameters(
+                "Font size must be > 0".to_string(),
+            ));
         }
         if let (Some(x), Some(y)) = (self.x, self.y) {
             if x == 0 && y == 0 {
-                return Err(ImageError::InvalidParameters("Both x and y coordinates cannot be 0".to_string()));
+                return Err(ImageError::InvalidParameters(
+                    "Both x and y coordinates cannot be 0".to_string(),
+                ));
             }
         }
         Ok(())
@@ -146,13 +170,17 @@ pub struct FormatConversionParams {
     pub quality: Option<u8>,
 }
 
-fn default_format() -> String { "png".to_string() }
+fn default_format() -> String {
+    "png".to_string()
+}
 
 impl Validate for FormatConversionParams {
     fn validate(&self) -> Result<(), ImageError> {
         if let Some(quality) = self.quality {
             if quality > 100 {
-                return Err(ImageError::InvalidQuality("Quality must be between 0 and 100.".to_string()));
+                return Err(ImageError::InvalidQuality(
+                    "Quality must be between 0 and 100.".to_string(),
+                ));
             }
         }
         Ok(())
@@ -176,7 +204,9 @@ pub struct SmartCropParams {
 impl Validate for SmartCropParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
         }
         Ok(())
     }
@@ -251,7 +281,9 @@ pub struct ThumbnailParams {
 impl Validate for ThumbnailParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
         }
         Ok(())
     }
@@ -275,7 +307,9 @@ pub struct ExtractParams {
 impl Validate for ExtractParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
-            return Err(ImageError::InvalidDimensions("Width and height must be > 0".to_string()));
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
         }
         Ok(())
     }
@@ -289,12 +323,16 @@ pub struct ZoomParams {
     pub factor: f32,
 }
 
-fn default_zoom_factor() -> f32 { 1.0 }
+fn default_zoom_factor() -> f32 {
+    1.0
+}
 
 impl Validate for ZoomParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.factor <= 0.0 {
-            return Err(ImageError::InvalidParameters("Zoom factor must be > 0".to_string()));
+            return Err(ImageError::InvalidParameters(
+                "Zoom factor must be > 0".to_string(),
+            ));
         }
         Ok(())
     }
@@ -315,7 +353,9 @@ pub struct WatermarkImageParams {
 impl Validate for WatermarkImageParams {
     fn validate(&self) -> Result<(), ImageError> {
         if self.opacity < 0.0 || self.opacity > 1.0 {
-            return Err(ImageError::InvalidOpacity("Opacity must be between 0.0 and 1.0".to_string()));
+            return Err(ImageError::InvalidOpacity(
+                "Opacity must be between 0.0 and 1.0".to_string(),
+            ));
         }
         Ok(())
     }

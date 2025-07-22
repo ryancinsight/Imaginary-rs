@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: imaginary-rs-config
+  namespace: imaginary-rs
+  labels:
+    app.kubernetes.io/name: imaginary-rs
+    app.kubernetes.io/component: config
+data:
+  default.toml: |
+    [server]
+    host = "0.0.0.0"
+    port = 8080
+    read_timeout = 30
+    write_timeout = 30
+    max_body_size = 10485760
+
+    [security]
+    allowed_origins = ["*"]
+
+    [storage]
+    temp_dir = "/tmp"
+    max_cache_size = 1073741824
+
+    [data]
+    sample_data = "production"

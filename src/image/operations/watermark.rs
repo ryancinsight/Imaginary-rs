@@ -2,11 +2,11 @@
 //!
 //! This module provides functions to apply text or image watermarks to images as part of the processing pipeline.
 
+use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosition};
 use image::{DynamicImage, Rgba};
-use imageproc::drawing::draw_text_mut;
-use rusttype::{Font, Scale, point};
-use crate::image::params::{WatermarkParams, WatermarkImageParams, WatermarkPosition};
 use image::{GenericImage, GenericImageView, RgbaImage};
+use imageproc::drawing::draw_text_mut;
+use rusttype::{point, Font, Scale};
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -38,9 +38,11 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
     // Always operate on RGBA8
     let mut rgba_image = image.to_rgba8();
     // Load the font data from a byte array
-    let font_data = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts/DejaVuSans.ttf"));
-    let font = Font::try_from_bytes(font_data)
-        .ok_or_else(|| "Failed to load font".to_string())?;
+    let font_data = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/fonts/DejaVuSans.ttf"
+    ));
+    let font = Font::try_from_bytes(font_data).ok_or_else(|| "Failed to load font".to_string())?;
 
     let scale = Scale::uniform(params.font_size as f32);
     let color = Rgba([
@@ -65,27 +67,22 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
 
     let (x, y) = match (params.x, params.y) {
         (Some(x), Some(y)) => (x, y),
-        _ => {
-            match params.position {
-                WatermarkPosition::TopLeft => (margin, margin + glyphs_height),
-                WatermarkPosition::TopRight => (
-                    width.saturating_sub(glyphs_width + margin),
-                    margin + glyphs_height
-                ),
-                WatermarkPosition::BottomLeft => (
-                    margin,
-                    height.saturating_sub(margin)
-                ),
-                WatermarkPosition::BottomRight => (
-                    width.saturating_sub(glyphs_width + margin),
-                    height.saturating_sub(margin)
-                ),
-                WatermarkPosition::Center => (
-                    width.saturating_sub(glyphs_width) / 2,
-                    height.saturating_sub(glyphs_height) / 2 + glyphs_height
-                ),
-            }
-        }
+        _ => match params.position {
+            WatermarkPosition::TopLeft => (margin, margin + glyphs_height),
+            WatermarkPosition::TopRight => (
+                width.saturating_sub(glyphs_width + margin),
+                margin + glyphs_height,
+            ),
+            WatermarkPosition::BottomLeft => (margin, height.saturating_sub(margin)),
+            WatermarkPosition::BottomRight => (
+                width.saturating_sub(glyphs_width + margin),
+                height.saturating_sub(margin),
+            ),
+            WatermarkPosition::Center => (
+                width.saturating_sub(glyphs_width) / 2,
+                height.saturating_sub(glyphs_height) / 2 + glyphs_height,
+            ),
+        },
     };
 
     draw_text_mut(
@@ -95,7 +92,7 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
         y as i32,
         scale,
         &font,
-        &params.text
+        &params.text,
     );
 
     Ok(DynamicImage::ImageRgba8(rgba_image))
@@ -122,7 +119,9 @@ pub(crate) fn watermark_image(
         WatermarkPosition::TopLeft => (0, 0),
         WatermarkPosition::TopRight => (img_width - watermark_width, 0),
         WatermarkPosition::BottomLeft => (0, img_height - watermark_height),
-        WatermarkPosition::BottomRight => (img_width - watermark_width, img_height - watermark_height),
+        WatermarkPosition::BottomRight => {
+            (img_width - watermark_width, img_height - watermark_height)
+        }
         WatermarkPosition::Center => (
             (img_width - watermark_width) / 2,
             (img_height - watermark_height) / 2,
@@ -152,8 +151,8 @@ pub(crate) fn watermark_image(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba};
     use crate::image::params::{WatermarkParams, WatermarkPosition};
+    use image::{DynamicImage, ImageBuffer, Rgba};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -315,4 +314,4 @@ mod tests {
         let px = result.get_pixel(10, 10);
         assert!(px[0] > 0 && px[3] == 255);
     }
-} 
+}

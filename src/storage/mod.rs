@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
-use serde::Deserialize;
 use anyhow::Result;
 use cached::proc_macro::cached;
-use sha2::{Sha256, Digest};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 #[derive(Debug, Default, Deserialize)]
@@ -53,7 +53,11 @@ pub fn get_cached_result(_image_path: PathBuf, _operation: &str, _params: &str) 
     key = "String",
     convert = r#"{ format!("{}:{}:{}", _filename, _content_length, _content_type) }"#
 )]
-pub fn get_metadata_hash(_filename: String, _content_length: usize, _content_type: String) -> Option<String> {
+pub fn get_metadata_hash(
+    _filename: String,
+    _content_length: usize,
+    _content_type: String,
+) -> Option<String> {
     None
 }
 
@@ -82,17 +86,17 @@ pub fn check_cached_metadata(
 // Generate operation hash
 pub fn generate_operation_hash(image_path: &Path, operation: &str, params: &str) -> Result<String> {
     let mut hasher = Sha256::new();
-    
+
     // Hash the image content
     let mut file = fs::File::open(image_path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
     hasher.update(&buffer);
-    
+
     // Hash the operation and parameters
     hasher.update(operation.as_bytes());
     hasher.update(params.as_bytes());
-    
+
     Ok(format!("{:x}", hasher.finalize()))
 }
 
@@ -113,7 +117,7 @@ pub fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<Pa
 #[allow(dead_code)] // For future cache management features
 pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Result<()> {
     let now = std::time::SystemTime::now();
-    
+
     for entry in fs::read_dir(temp_dir)?.flatten() {
         if let Ok(metadata) = entry.metadata() {
             if let Ok(created) = metadata.created() {
@@ -123,7 +127,7 @@ pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Re
             }
         }
     }
-    
+
     Ok(())
 }
 

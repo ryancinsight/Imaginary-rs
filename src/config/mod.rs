@@ -1,13 +1,13 @@
-use serde::Deserialize;
+use crate::http::errors::AppError;
+use crate::security::SecurityConfig;
+use crate::server::ServerConfig;
+use crate::storage::StorageConfig;
 use anyhow::Result;
 use clap::ArgMatches;
-use crate::server::ServerConfig;
-use crate::security::SecurityConfig;
-use crate::storage::StorageConfig;
+use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 use toml::Value;
-use crate::http::errors::AppError;
 pub mod cli;
 
 #[derive(Debug, Deserialize)]
@@ -38,20 +38,27 @@ fn default_data() -> Vec<u8> {
 }
 
 pub fn load_config(matches: &ArgMatches) -> Result<Config, AppError> {
-    let config_path = matches.get_one::<String>("config").map(|s| s.as_str()).unwrap_or("config/default.toml");
+    let config_path = matches
+        .get_one::<String>("config")
+        .map(|s| s.as_str())
+        .unwrap_or("config/default.toml");
     let config_path = Path::new(config_path);
 
     if !config_path.exists() {
         create_default_config(config_path)?;
     }
 
-    let config_content = fs::read_to_string(config_path).map_err(|_| AppError::FileSystemError("Failed to read config file".to_string()))?;
-    let mut config: Value = toml::from_str(&config_content).map_err(|_| AppError::FileSystemError("Failed to parse config file".to_string()))?;
+    let config_content = fs::read_to_string(config_path)
+        .map_err(|_| AppError::FileSystemError("Failed to read config file".to_string()))?;
+    let mut config: Value = toml::from_str(&config_content)
+        .map_err(|_| AppError::FileSystemError("Failed to parse config file".to_string()))?;
 
     override_with_cli_args(&mut config, matches)
         .map_err(|e| AppError::BadRequest(format!("Configuration error: {}", e)))?;
 
-    let config: Config = config.try_into().map_err(|_| AppError::FileSystemError("Failed to deserialize config".to_string()))?;
+    let config: Config = config
+        .try_into()
+        .map_err(|_| AppError::FileSystemError("Failed to deserialize config".to_string()))?;
     Ok(config)
 }
 
@@ -78,17 +85,24 @@ max_cache_size = 1073741824
 value = "example data"
 "#;
 
-    fs::create_dir_all(config_path.parent().unwrap()).map_err(|_| AppError::FileSystemError("Failed to create config directory".to_string()))?;
-    fs::write(config_path, default_config).map_err(|_| AppError::FileSystemError("Failed to write default config file".to_string()))?;
+    fs::create_dir_all(config_path.parent().unwrap())
+        .map_err(|_| AppError::FileSystemError("Failed to create config directory".to_string()))?;
+    fs::write(config_path, default_config).map_err(|_| {
+        AppError::FileSystemError("Failed to write default config file".to_string())
+    })?;
     Ok(())
 }
 
 fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<(), String> {
     if let Some(port) = matches.get_one::<String>("port") {
-        let port_val = port.parse::<i64>()
+        let port_val = port
+            .parse::<i64>()
             .map_err(|_| format!("Invalid port value: {}", port))?;
         if !(1..=65535).contains(&port_val) {
-            return Err(format!("Port must be between 1 and 65535, got: {}", port_val));
+            return Err(format!(
+                "Port must be between 1 and 65535, got: {}",
+                port_val
+            ));
         }
         config["server"]["port"] = Value::Integer(port_val);
     }
@@ -96,18 +110,26 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<()
         config["server"]["host"] = Value::String(host.clone());
     }
     if let Some(read_timeout) = matches.get_one::<String>("read-timeout") {
-        let timeout_val = read_timeout.parse::<i64>()
+        let timeout_val = read_timeout
+            .parse::<i64>()
             .map_err(|_| format!("Invalid read timeout value: {}", read_timeout))?;
         if timeout_val < 1 {
-            return Err(format!("Read timeout must be positive, got: {}", timeout_val));
+            return Err(format!(
+                "Read timeout must be positive, got: {}",
+                timeout_val
+            ));
         }
         config["server"]["read_timeout"] = Value::Integer(timeout_val);
     }
     if let Some(write_timeout) = matches.get_one::<String>("write-timeout") {
-        let timeout_val = write_timeout.parse::<i64>()
+        let timeout_val = write_timeout
+            .parse::<i64>()
             .map_err(|_| format!("Invalid write timeout value: {}", write_timeout))?;
         if timeout_val < 1 {
-            return Err(format!("Write timeout must be positive, got: {}", timeout_val));
+            return Err(format!(
+                "Write timeout must be positive, got: {}",
+                timeout_val
+            ));
         }
         config["server"]["write_timeout"] = Value::Integer(timeout_val);
     }
@@ -115,10 +137,14 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<()
         config["server"]["concurrency"] = Value::Integer(*concurrency as i64);
     }
     if let Some(max_body_size) = matches.get_one::<String>("max-body-size") {
-        let size_val = max_body_size.parse::<i64>()
+        let size_val = max_body_size
+            .parse::<i64>()
             .map_err(|_| format!("Invalid max body size value: {}", max_body_size))?;
         if size_val < 1024 {
-            return Err(format!("Max body size must be at least 1024 bytes, got: {}", size_val));
+            return Err(format!(
+                "Max body size must be at least 1024 bytes, got: {}",
+                size_val
+            ));
         }
         config["server"]["max_body_size"] = Value::Integer(size_val);
     }
@@ -136,17 +162,24 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<()
     }
     if let Some(allowed_origins) = matches.get_one::<String>("allowed-origins") {
         config["security"]["allowed_origins"] = Value::Array(
-            allowed_origins.split(',').map(|s| Value::String(s.trim().to_string())).collect()
+            allowed_origins
+                .split(',')
+                .map(|s| Value::String(s.trim().to_string()))
+                .collect(),
         );
     }
     if let Some(temp_dir) = matches.get_one::<String>("temp-dir") {
         config["storage"]["temp_dir"] = Value::String(temp_dir.clone());
     }
     if let Some(max_cache_size) = matches.get_one::<String>("max-cache-size") {
-        let cache_size_val = max_cache_size.parse::<i64>()
+        let cache_size_val = max_cache_size
+            .parse::<i64>()
             .map_err(|_| format!("Invalid max cache size value: {}", max_cache_size))?;
         if cache_size_val < 1024 * 1024 {
-            return Err(format!("Max cache size must be at least 1MB, got: {}", cache_size_val));
+            return Err(format!(
+                "Max cache size must be at least 1MB, got: {}",
+                cache_size_val
+            ));
         }
         config["storage"]["max_cache_size"] = Value::Integer(cache_size_val);
     }

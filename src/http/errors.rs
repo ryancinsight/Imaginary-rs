@@ -38,13 +38,13 @@ pub enum AppError {
 pub enum ImageError {
     #[error("Invalid dimensions: {0}")]
     InvalidDimensions(String),
-    
+
     #[error("Invalid degrees: {0}")]
     InvalidDegrees(String),
-    
+
     #[error("Invalid opacity: {0}")]
     InvalidOpacity(String),
-    
+
     #[error("Invalid quality: {0}")]
     InvalidQuality(String),
 
@@ -59,10 +59,7 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal Server Error: {}", msg),
             ),
-            AppError::BadRequest(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Bad Request: {}", msg),
-            ),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, format!("Bad Request: {}", msg)),
             AppError::ImageProcessingError(msg) => (
                 StatusCode::BAD_REQUEST,
                 format!("Image Processing Error: {}", msg),
@@ -87,14 +84,12 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("File System Error: {}", msg),
             ),
-            AppError::MultipartError(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Multipart Error: {}", msg),
-            ),
-            AppError::Unauthorized(msg) => (
-                StatusCode::UNAUTHORIZED,
-                format!("Unauthorized: {}", msg),
-            ),
+            AppError::MultipartError(msg) => {
+                (StatusCode::BAD_REQUEST, format!("Multipart Error: {}", msg))
+            }
+            AppError::Unauthorized(msg) => {
+                (StatusCode::UNAUTHORIZED, format!("Unauthorized: {}", msg))
+            }
         };
 
         // Log the error
@@ -105,7 +100,7 @@ impl IntoResponse for AppError {
             "code": status.as_u16(),
             "status": "error"
         }));
-        
+
         (status, body).into_response()
     }
 }
@@ -117,18 +112,15 @@ impl IntoResponse for ImageError {
                 StatusCode::BAD_REQUEST,
                 format!("Invalid dimensions: {}", msg),
             ),
-            ImageError::InvalidDegrees(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid degrees: {}", msg),
-            ),
-            ImageError::InvalidOpacity(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid opacity: {}", msg),
-            ),
-            ImageError::InvalidQuality(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid quality: {}", msg),
-            ),
+            ImageError::InvalidDegrees(msg) => {
+                (StatusCode::BAD_REQUEST, format!("Invalid degrees: {}", msg))
+            }
+            ImageError::InvalidOpacity(msg) => {
+                (StatusCode::BAD_REQUEST, format!("Invalid opacity: {}", msg))
+            }
+            ImageError::InvalidQuality(msg) => {
+                (StatusCode::BAD_REQUEST, format!("Invalid quality: {}", msg))
+            }
             ImageError::InvalidParameters(msg) => (
                 StatusCode::BAD_REQUEST,
                 format!("Invalid parameters: {}", msg),
@@ -143,7 +135,7 @@ impl IntoResponse for ImageError {
             "code": status.as_u16(),
             "status": "error"
         }));
-        
+
         (status, body).into_response()
     }
 }

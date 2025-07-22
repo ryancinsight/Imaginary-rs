@@ -2,8 +2,11 @@
 //!
 //! This module provides functions for resizing, rotating, cropping, flipping, enlarging, extracting, zooming, smart cropping, and creating thumbnails.
 
-use image::{DynamicImage, imageops::FilterType, GenericImageView};
-use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams, Validate};
+use crate::image::params::{
+    CropParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams, ThumbnailParams,
+    Validate, ZoomParams,
+};
+use image::{imageops::FilterType, DynamicImage, GenericImageView};
 
 /// Resize the image to the given dimensions.
 pub fn resize(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
@@ -86,8 +89,11 @@ pub fn thumbnail(image: DynamicImage, params: &ThumbnailParams) -> DynamicImage 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::image::params::{
+        CropParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams, ThumbnailParams,
+        ZoomParams,
+    };
     use image::{DynamicImage, ImageBuffer, Rgba};
-    use crate::image::params::{ResizeParams, RotateParams, CropParams, ThumbnailParams, ExtractParams, ZoomParams, SmartCropParams};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -100,7 +106,10 @@ mod tests {
     #[test]
     fn test_resize() {
         let img = create_test_image(100, 100);
-        let params = ResizeParams { width: 50, height: 50 };
+        let params = ResizeParams {
+            width: 50,
+            height: 50,
+        };
         let resized = resize(img, &params);
         assert_eq!(resized.dimensions(), (50, 50));
     }
@@ -116,7 +125,12 @@ mod tests {
     #[test]
     fn test_crop() {
         let img = create_test_image(100, 100);
-        let params = CropParams { x: 10, y: 10, width: 50, height: 50 };
+        let params = CropParams {
+            x: 10,
+            y: 10,
+            width: 50,
+            height: 50,
+        };
         let cropped = crop(img, &params);
         assert_eq!(cropped.dimensions(), (50, 50));
     }
@@ -138,7 +152,10 @@ mod tests {
     #[test]
     fn test_enlarge() {
         let img = create_test_image(50, 50);
-        let params = ResizeParams { width: 100, height: 100 };
+        let params = ResizeParams {
+            width: 100,
+            height: 100,
+        };
         let enlarged = enlarge(img, &params);
         assert_eq!(enlarged.dimensions(), (100, 100));
     }
@@ -146,7 +163,12 @@ mod tests {
     #[test]
     fn test_extract() {
         let img = create_test_image(100, 100);
-        let params = ExtractParams { x: 10, y: 10, width: 30, height: 30 };
+        let params = ExtractParams {
+            x: 10,
+            y: 10,
+            width: 30,
+            height: 30,
+        };
         let extracted = extract(img, &params);
         assert_eq!(extracted.dimensions(), (30, 30));
     }
@@ -162,7 +184,11 @@ mod tests {
     #[test]
     fn test_smart_crop() {
         let img = create_test_image(100, 100);
-        let params = SmartCropParams { width: 50, height: 50, quality: None };
+        let params = SmartCropParams {
+            width: 50,
+            height: 50,
+            quality: None,
+        };
         let cropped = smart_crop(img, &params);
         assert_eq!(cropped.dimensions(), (50, 50));
     }
@@ -170,8 +196,11 @@ mod tests {
     #[test]
     fn test_thumbnail() {
         let img = create_test_image(100, 100);
-        let params = ThumbnailParams { width: 20, height: 20 };
+        let params = ThumbnailParams {
+            width: 20,
+            height: 20,
+        };
         let thumb = thumbnail(img, &params);
         assert_eq!(thumb.dimensions(), (20, 20));
     }
-} 
+}

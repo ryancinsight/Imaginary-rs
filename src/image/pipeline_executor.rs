@@ -32,9 +32,9 @@ pub fn execute_pipeline(
                     tracing::warn!(operation = ?operation_name, "Operation failed but was ignored");
                 } else {
                     return Err(match e {
-                        ae @ AppError::BadRequest(_) |
-                        ae @ AppError::ImageProcessingError(_) |
-                        ae @ AppError::InvalidOperation(_) => ae,
+                        ae @ AppError::BadRequest(_)
+                        | ae @ AppError::ImageProcessingError(_)
+                        | ae @ AppError::InvalidOperation(_) => ae,
                         _ => AppError::ImageProcessingError(format!(
                             "Error in operation {:?}: {}",
                             operation_name, e
@@ -93,43 +93,57 @@ fn execute_single_operation(
             operations::convert_format(image, &params) // Returns Result<DynamicImage, AppError>
         }
         SupportedOperation::AdjustBrightness => {
-            let params: params::AdjustBrightnessParams = parse_params(&spec.params, "AdjustBrightness")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid AdjustBrightness params: {}", e)))?;
+            let params: params::AdjustBrightnessParams =
+                parse_params(&spec.params, "AdjustBrightness")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid AdjustBrightness params: {}", e))
+            })?;
             Ok(operations::adjust_brightness(image, params.value))
         }
         SupportedOperation::AdjustContrast => {
-            let params: params::AdjustContrastParams = parse_params(&spec.params, "AdjustContrast")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid AdjustContrast params: {}", e)))?;
+            let params: params::AdjustContrastParams =
+                parse_params(&spec.params, "AdjustContrast")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid AdjustContrast params: {}", e))
+            })?;
             Ok(operations::adjust_contrast(image, params.value))
         }
         SupportedOperation::Sharpen => Ok(operations::sharpen(image)),
         SupportedOperation::Thumbnail => {
             let params: params::ThumbnailParams = parse_params(&spec.params, "Thumbnail")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid Thumbnail params: {}", e)))?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Thumbnail params: {}", e))
+            })?;
             Ok(operations::thumbnail(image, &params))
         }
         SupportedOperation::Enlarge => {
             // Enlarge uses ResizeParams, but only allows upscaling
             let params: params::ResizeParams = parse_params(&spec.params, "Enlarge")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid Enlarge params: {}", e)))?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Enlarge params: {}", e))
+            })?;
             Ok(operations::enlarge(image, &params))
         }
         SupportedOperation::Extract => {
             let params: params::ExtractParams = parse_params(&spec.params, "Extract")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid Extract params: {}", e)))?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Extract params: {}", e))
+            })?;
             Ok(operations::extract(image, &params))
         }
-        SupportedOperation::Autorotate => {
-            Ok(operations::autorotate(image))
-        }
+        SupportedOperation::Autorotate => Ok(operations::autorotate(image)),
         SupportedOperation::Zoom => {
             let params: params::ZoomParams = parse_params(&spec.params, "Zoom")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid Zoom params: {}", e)))?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Zoom params: {}", e))
+            })?;
             Ok(operations::zoom(image, &params))
         }
         SupportedOperation::SmartCrop => {
             let params: params::SmartCropParams = parse_params(&spec.params, "SmartCrop")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid SmartCrop params: {}", e)))?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid SmartCrop params: {}", e))
+            })?;
             Ok(operations::smart_crop(image, &params))
         }
         SupportedOperation::Watermark => {
@@ -141,15 +155,17 @@ fn execute_single_operation(
                 .map_err(AppError::ImageProcessingError)
         }
         SupportedOperation::WatermarkImage => {
-            let params: params::WatermarkImageParams = parse_params(&spec.params, "WatermarkImage")?;
-            params.validate().map_err(|e: ImageError| AppError::BadRequest(format!("Invalid WatermarkImage params: {}", e)))?;
+            let params: params::WatermarkImageParams =
+                parse_params(&spec.params, "WatermarkImage")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid WatermarkImage params: {}", e))
+            })?;
             Ok(operations::watermark::watermark_image(image, &params))
-        }
-        // Catch any other future variants if SupportedOperation enum expands beyond these
-        // _ => Err(AppError::InvalidOperation(format!(
-        //     "Unknown or unsupported operation: {:?}.",
-        //     spec.operation
-        // ))),
+        } // Catch any other future variants if SupportedOperation enum expands beyond these
+          // _ => Err(AppError::InvalidOperation(format!(
+          //     "Unknown or unsupported operation: {:?}.",
+          //     spec.operation
+          // ))),
     }
 }
 
@@ -174,7 +190,7 @@ fn parse_params<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{DynamicImage, ImageBuffer, Rgba, GenericImageView};
+    use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
     use serde_json::json;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
@@ -208,29 +224,35 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Pipeline failed at resize or blur: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Pipeline failed at resize or blur: {:?}",
+            result
+        );
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (50, 50), "Resize did not produce expected dimensions");
+        assert_eq!(
+            processed.dimensions(),
+            (50, 50),
+            "Resize did not produce expected dimensions"
+        );
     }
 
     #[test]
     fn test_watermark_pipeline() {
         let image = create_test_image(100, 100);
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Watermark,
-                ignore_failure: false,
-                params: json!({
-                    "text": "Test",
-                    "opacity": 0.5,
-                    "position": "Center",
-                    "font_size": 24,
-                    "color": [255, 255, 255],
-                    "x": null,
-                    "y": null
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Watermark,
+            ignore_failure: false,
+            params: json!({
+                "text": "Test",
+                "opacity": 0.5,
+                "position": "Center",
+                "font_size": 24,
+                "color": [255, 255, 255],
+                "x": null,
+                "y": null
+            }),
+        }];
 
         let result = execute_pipeline(image, operations);
         if result.is_err() {
@@ -238,7 +260,11 @@ mod tests {
         }
         assert!(result.is_ok(), "Watermark pipeline failed: {:?}", result);
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100), "Watermark did not preserve dimensions");
+        assert_eq!(
+            processed.dimensions(),
+            (100, 100),
+            "Watermark did not preserve dimensions"
+        );
     }
 
     #[test]
@@ -264,109 +290,117 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Pipeline with ignored failures failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Pipeline with ignored failures failed: {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_pipeline_error_handling() {
         let image = create_test_image(100, 100);
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                ignore_failure: false,
-                params: json!({
-                    "width": -50, // Invalid parameter
-                    "height": 50
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Resize,
+            ignore_failure: false,
+            params: json!({
+                "width": -50, // Invalid parameter
+                "height": 50
+            }),
+        }];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_err(), "Pipeline error handling did not catch error for invalid resize");
+        assert!(
+            result.is_err(),
+            "Pipeline error handling did not catch error for invalid resize"
+        );
     }
 
     #[test]
     fn test_watermark_custom_position_and_color() {
         let image = create_test_image(100, 100);
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Watermark,
-                ignore_failure: false,
-                params: json!({
-                    "text": "Custom",
-                    "opacity": 1.0,
-                    "position": "TopLeft",
-                    "font_size": 16,
-                    "color": [0, 255, 0],
-                    "x": 5,
-                    "y": 5
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Watermark,
+            ignore_failure: false,
+            params: json!({
+                "text": "Custom",
+                "opacity": 1.0,
+                "position": "TopLeft",
+                "font_size": 16,
+                "color": [0, 255, 0],
+                "x": 5,
+                "y": 5
+            }),
+        }];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Watermark with custom position and color failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Watermark with custom position and color failed: {:?}",
+            result
+        );
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100), "Custom watermark did not preserve dimensions");
+        assert_eq!(
+            processed.dimensions(),
+            (100, 100),
+            "Custom watermark did not preserve dimensions"
+        );
     }
 
     #[test]
     fn test_watermark_invalid_params() {
         let image = create_test_image(100, 100);
         // Missing text
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Watermark,
-                ignore_failure: false,
-                params: json!({
-                    "opacity": 1.0,
-                    "position": "TopLeft",
-                    "font_size": 16,
-                    "color": [0, 255, 0],
-                    "x": 5,
-                    "y": 5
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Watermark,
+            ignore_failure: false,
+            params: json!({
+                "opacity": 1.0,
+                "position": "TopLeft",
+                "font_size": 16,
+                "color": [0, 255, 0],
+                "x": 5,
+                "y": 5
+            }),
+        }];
         let result = execute_pipeline(image.clone(), operations);
         assert!(result.is_err(), "Watermark missing text should error");
 
         // Invalid color array (too short)
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Watermark,
-                ignore_failure: false,
-                params: json!({
-                    "text": "BadColor",
-                    "opacity": 1.0,
-                    "position": "TopLeft",
-                    "font_size": 16,
-                    "color": [0, 255],
-                    "x": 5,
-                    "y": 5
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Watermark,
+            ignore_failure: false,
+            params: json!({
+                "text": "BadColor",
+                "opacity": 1.0,
+                "position": "TopLeft",
+                "font_size": 16,
+                "color": [0, 255],
+                "x": 5,
+                "y": 5
+            }),
+        }];
         let result = execute_pipeline(image.clone(), operations);
         assert!(result.is_err(), "Watermark with invalid color should error");
 
         // Negative font size
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Watermark,
-                ignore_failure: false,
-                params: json!({
-                    "text": "NegativeFont",
-                    "opacity": 1.0,
-                    "position": "TopLeft",
-                    "font_size": -10,
-                    "color": [0, 255, 0],
-                    "x": 5,
-                    "y": 5
-                }),
-            },
-        ];
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Watermark,
+            ignore_failure: false,
+            params: json!({
+                "text": "NegativeFont",
+                "opacity": 1.0,
+                "position": "TopLeft",
+                "font_size": -10,
+                "color": [0, 255, 0],
+                "x": 5,
+                "y": 5
+            }),
+        }];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_err(), "Watermark with negative font size should error");
+        assert!(
+            result.is_err(),
+            "Watermark with negative font size should error"
+        );
     }
 
     #[test]
@@ -399,9 +433,17 @@ mod tests {
             },
         ];
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Pipeline grayscale->watermark->convert failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Pipeline grayscale->watermark->convert failed: {:?}",
+            result
+        );
         let processed = result.unwrap();
-        assert_eq!(processed.dimensions(), (100, 100), "Pipeline grayscale->watermark->convert did not preserve dimensions");
+        assert_eq!(
+            processed.dimensions(),
+            (100, 100),
+            "Pipeline grayscale->watermark->convert did not preserve dimensions"
+        );
     }
 
     // Additional comprehensive tests for execute_single_operation
@@ -413,7 +455,7 @@ mod tests {
             params: json!({"width": 50, "height": 75}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
@@ -428,7 +470,7 @@ mod tests {
             params: json!({"width": -10, "height": 50}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
@@ -441,7 +483,7 @@ mod tests {
             params: json!({}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -454,7 +496,7 @@ mod tests {
             params: json!({"sigma": 2.0}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -467,7 +509,7 @@ mod tests {
             params: json!({"sigma": -1.0}), // Invalid negative sigma
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
@@ -480,7 +522,7 @@ mod tests {
             params: json!({"x": 10, "y": 10, "width": 50, "height": 50}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
@@ -495,7 +537,7 @@ mod tests {
             params: json!({"x": 0, "y": 0, "width": 0, "height": 50}), // zero width should fail
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
@@ -508,7 +550,7 @@ mod tests {
             params: json!({"degrees": 90}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -521,7 +563,7 @@ mod tests {
             params: json!({}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -534,7 +576,7 @@ mod tests {
             params: json!({}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -547,7 +589,7 @@ mod tests {
             params: json!({"value": 20}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -560,7 +602,7 @@ mod tests {
             params: json!({"value": 1.2}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -573,7 +615,7 @@ mod tests {
             params: json!({}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -586,7 +628,7 @@ mod tests {
             params: json!({"format": "jpeg", "quality": 85}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
@@ -599,7 +641,7 @@ mod tests {
             params: json!({"format": "invalid_format"}),
             ignore_failure: false,
         };
-        
+
         let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
@@ -661,7 +703,11 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Pipeline with mixed success/ignored failures failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Pipeline with mixed success/ignored failures failed: {:?}",
+            result
+        );
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (80, 80)); // Should have resize dimensions
     }
@@ -683,7 +729,10 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations);
-        assert!(result.is_ok(), "Pipeline with all ignored failures should succeed");
+        assert!(
+            result.is_ok(),
+            "Pipeline with all ignored failures should succeed"
+        );
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (100, 100)); // Should maintain original dimensions
     }
@@ -722,7 +771,7 @@ mod tests {
     fn test_pipeline_empty_operations() {
         let image = create_test_image(100, 100);
         let operations = vec![];
-        
+
         let result = execute_pipeline(image, operations);
         assert!(result.is_ok());
         let processed = result.unwrap();

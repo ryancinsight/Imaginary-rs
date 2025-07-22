@@ -1,14 +1,14 @@
-use serde::Deserialize;
 use anyhow::Result;
 use hmac::{Hmac, Mac};
-use sha2::{Sha256, Digest};
-use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::env;
-use std::process::Command;
 use std::fmt;
-use std::ops::Deref;
 use std::fs;
+use std::ops::Deref;
+use std::process::Command;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -149,7 +149,11 @@ impl SecurityConfig {
     /// Uses the configured key, or a default placeholder if none is set.
     /// Note: Using a default placeholder key is insecure and only for non-localhost fallback.
     fn prepare_key(&self) -> Vec<u8> {
-        let key_string = self.key.as_ref().map(|k| k.0.clone()).unwrap_or_else(|| "default_key_placeholder_insecure".to_string());
+        let key_string = self
+            .key
+            .as_ref()
+            .map(|k| k.0.clone())
+            .unwrap_or_else(|| "default_key_placeholder_insecure".to_string());
         let mut hasher = Sha256::new();
         hasher.update(key_string.as_bytes());
         hasher.finalize().to_vec()
@@ -180,7 +184,8 @@ impl SecurityConfig {
     }
 
     pub fn is_origin_allowed(&self, origin: &str) -> bool {
-        self.allowed_origins.contains(&origin.to_string()) || self.allowed_origins.contains(&"*".to_string())
+        self.allowed_origins.contains(&origin.to_string())
+            || self.allowed_origins.contains(&"*".to_string())
     }
 
     pub fn generate_signature(&self, data: &[u8]) -> Result<String> {
@@ -201,12 +206,14 @@ impl SecurityConfig {
     /// - allowed_origins must not contain "*"
     pub fn validate_secure(&self) -> Result<(), String> {
         match &self.key {
-            Some(k) if k.0.len() >= 32 => {},
+            Some(k) if k.0.len() >= 32 => {}
             _ => return Err("Security key must be set and at least 32 characters long".to_string()),
         }
         match &self.salt {
-            Some(s) if s.0.len() >= 32 => {},
-            _ => return Err("Security salt must be set and at least 32 characters long".to_string()),
+            Some(s) if s.0.len() >= 32 => {}
+            _ => {
+                return Err("Security salt must be set and at least 32 characters long".to_string())
+            }
         }
         if self.allowed_origins.iter().any(|o| o == "*") {
             return Err("Wildcard '*' in allowed_origins is not allowed in production".to_string());
@@ -219,7 +226,9 @@ impl SecurityConfig {
 /// Returns a String, to be wrapped in ApiKey or ApiSalt by the caller.
 #[allow(dead_code)]
 pub(crate) fn generate_local_machine_secret() -> String {
-    let username = env::var("USERNAME").or_else(|_| env::var("USER")).unwrap_or_default();
+    let username = env::var("USERNAME")
+        .or_else(|_| env::var("USER"))
+        .unwrap_or_default();
     let hostname = get_hostname().unwrap_or_default();
     let os_info = get_os_info().unwrap_or_default();
     let mut hasher = Sha256::new();
@@ -232,10 +241,14 @@ pub(crate) fn generate_local_machine_secret() -> String {
 #[allow(dead_code)]
 fn get_hostname() -> Option<String> {
     // Try std::env, then fallback to hostname command
-    env::var("COMPUTERNAME").ok()
+    env::var("COMPUTERNAME")
+        .ok()
         .or_else(|| env::var("HOSTNAME").ok())
         .or_else(|| {
-            Command::new("hostname").output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
+            Command::new("hostname")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
         })
         .map(|s| s.trim().to_string())
 }
@@ -243,13 +256,23 @@ fn get_hostname() -> Option<String> {
 #[allow(dead_code)]
 fn get_os_info() -> Option<String> {
     #[cfg(target_os = "windows")]
-    { Some("windows".to_string()) }
+    {
+        Some("windows".to_string())
+    }
     #[cfg(target_os = "linux")]
-    { fs::read_to_string("/etc/os-release").ok().or(Some("linux".to_string())) }
+    {
+        fs::read_to_string("/etc/os-release")
+            .ok()
+            .or(Some("linux".to_string()))
+    }
     #[cfg(target_os = "macos")]
-    { Some("macos".to_string()) }
+    {
+        Some("macos".to_string())
+    }
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-    { Some("unknown".to_string()) }
+    {
+        Some("unknown".to_string())
+    }
 }
 
 // Unit tests
@@ -276,8 +299,12 @@ mod tests {
     #[test]
     fn test_signature_validation() {
         let mut config = SecurityConfig::default();
-        config.set_key(ApiKey("a_secure_key_that_is_long_enough_1234567890".to_string()));
-        config.set_salt(ApiSalt("a_secure_salt_that_is_long_enough_1234567890".to_string()));
+        config.set_key(ApiKey(
+            "a_secure_key_that_is_long_enough_1234567890".to_string(),
+        ));
+        config.set_salt(ApiSalt(
+            "a_secure_salt_that_is_long_enough_1234567890".to_string(),
+        ));
         let data = b"test data";
         let signature = config.generate_signature(data).unwrap();
         assert!(config.validate_signature(data, &signature).unwrap());
@@ -291,8 +318,12 @@ mod tests {
         config.set_key(ApiKey("short".to_string()));
         config.set_salt(ApiSalt("short".to_string()));
         assert!(config.validate_secure().is_err());
-        config.set_key(ApiKey("a_secure_key_that_is_long_enough_1234567890".to_string()));
-        config.set_salt(ApiSalt("a_secure_salt_that_is_long_enough_1234567890".to_string()));
+        config.set_key(ApiKey(
+            "a_secure_key_that_is_long_enough_1234567890".to_string(),
+        ));
+        config.set_salt(ApiSalt(
+            "a_secure_salt_that_is_long_enough_1234567890".to_string(),
+        ));
         assert!(config.validate_secure().is_ok());
         config.set_allowed_origins(vec!["*".to_string()]);
         assert!(config.validate_secure().is_err());
