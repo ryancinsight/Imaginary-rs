@@ -55,7 +55,7 @@ sha2 = "0.10.9"
 hmac = "0.12.1"
 rand = "0.8.5"  # Downgraded from 0.9.1 for compatibility
 http = "1.3.1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "multipart"] }
 url = "2.5"
 once_cell = "1.19"
 
@@ -73,6 +73,22 @@ sysinfo = "0.32"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+tokio-test = "0.4"
+tempfile = "3.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
+
+[[bench]]
+name = "image_operations"
+harness = false
+
+[[bench]]
+name = "pipeline_performance"
+harness = false
+
+[[bench]]
+name = "memory_usage"
+harness = false
 
 [features]
 default = ["jpeg", "png", "webp"]
@@ -97,6 +113,10 @@ debug = true
 [[bin]]
 name = "imaginary"
 path = "src/main.rs"
+
+[[bin]]
+name = "load_test"
+path = "scripts/load_test.rs"
 
 [lib]
 name = "imaginary"  # Make sure this matches your crate name
