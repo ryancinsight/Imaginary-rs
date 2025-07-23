@@ -73,6 +73,22 @@ sysinfo = "0.32"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+tokio-test = "0.4"
+tempfile = "3.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
+
+[[bench]]
+name = "image_operations"
+harness = false
+
+[[bench]]
+name = "pipeline_performance"
+harness = false
+
+[[bench]]
+name = "memory_usage"
+harness = false
 
 [features]
 default = ["jpeg", "png", "webp"]
