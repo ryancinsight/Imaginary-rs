@@ -1,24 +1,129 @@
-#!/usr/bin/env cargo +nightly -Zscript
-
 //! Load testing script for imaginary-rs
 //! 
 //! This script tests the application under various concurrent load scenarios
 //! to establish performance characteristics and identify bottlenecks.
+//!
+//! Usage: cargo run --bin load_test
+//!
+//! Requirements:
+//! 1. The imaginary-rs service should be running on http://localhost:8080
+//! 2. A test image should be available at ./test_assets/test_image.jpg
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::time::sleep;
-use reqwest::Client;
+use reqwest::{Client, multipart};
 use serde_json::json;
+use std::path::Path;
+
+#[derive(Clone)]
+struct LoadTestScenario {
+    name: String,
+    concurrent_users: u32,
+    requests_per_user: u32,
+    delay_between_requests: Duration,
+}
+
+#[derive(Clone)]
+struct TestMetrics {
+    total_requests: Arc<AtomicU64>,
+    successful_requests: Arc<AtomicU64>,
+    failed_requests: Arc<AtomicU64>,
+    total_response_time: Arc<AtomicU64>,
+    min_response_time: Arc<AtomicU64>,
+    max_response_time: Arc<AtomicU64>,
+}
+
+impl TestMetrics {
+    fn new() -> Self {
+        Self {
+            total_requests: Arc::new(AtomicU64::new(0)),
+            successful_requests: Arc::new(AtomicU64::new(0)),
+            failed_requests: Arc::new(AtomicU64::new(0)),
+            total_response_time: Arc::new(AtomicU64::new(0)),
+            min_response_time: Arc::new(AtomicU64::new(u64::MAX)),
+            max_response_time: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    fn record_request(&self, response_time_ms: u64, success: bool) {
+        self.total_requests.fetch_add(1, Ordering::Relaxed);
+        
+        if success {
+            self.successful_requests.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.failed_requests.fetch_add(1, Ordering::Relaxed);
+        }
+
+        self.total_response_time.fetch_add(response_time_ms, Ordering::Relaxed);
+        
+        // Update min response time
+        loop {
+            let current_min = self.min_response_time.load(Ordering::Relaxed);
+            if response_time_ms >= current_min {
+                break;
+            }
+            if self.min_response_time.compare_exchange_weak(
+                current_min,
+                response_time_ms,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ).is_ok() {
+                break;
+            }
+        }
+
+        // Update max response time
+        loop {
+            let current_max = self.max_response_time.load(Ordering::Relaxed);
+            if response_time_ms <= current_max {
+                break;
+            }
+            if self.max_response_time.compare_exchange_weak(
+                current_max,
+                response_time_ms,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ).is_ok() {
+                break;
+            }
+        }
+    }
+
+    fn get_stats(&self) -> (u64, u64, u64, f64, u64, u64) {
+        let total = self.total_requests.load(Ordering::Relaxed);
+        let successful = self.successful_requests.load(Ordering::Relaxed);
+        let failed = self.failed_requests.load(Ordering::Relaxed);
+        let total_time = self.total_response_time.load(Ordering::Relaxed);
+        let min_time = self.min_response_time.load(Ordering::Relaxed);
+        let max_time = self.max_response_time.load(Ordering::Relaxed);
+        
+        let avg_time = if total > 0 {
+            total_time as f64 / total as f64
+        } else {
+            0.0
+        };
+
+        (total, successful, failed, avg_time, min_time, max_time)
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Starting Load Testing for imaginary-rs");
     println!("==========================================");
 
+    // Check if test image exists
+    let test_image_path = "./test_assets/test_image.jpg";
+    if !Path::new(test_image_path).exists() {
+        println!("❌ Error: Test image not found at {}", test_image_path);
+        println!("Please create a test image or run: mkdir -p test_assets && curl -o test_assets/test_image.jpg https://httpbin.org/image/jpeg");
+        return Ok(());
+    }
+
     // Test configuration
     let base_url = "http://localhost:8080";
-    let test_image_url = "https://httpbin.org/image/jpeg"; // Small test image
     
     // Load test scenarios
     let scenarios = vec![
@@ -29,7 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             delay_between_requests: Duration::from_millis(100),
         },
         LoadTestScenario {
-            name: "Moderate Load".to_string(),
+            name: "Medium Load".to_string(),
             concurrent_users: 50,
             requests_per_user: 10,
             delay_between_requests: Duration::from_millis(50),
@@ -37,229 +142,235 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         LoadTestScenario {
             name: "Heavy Load".to_string(),
             concurrent_users: 100,
-            requests_per_user: 5,
+            requests_per_user: 15,
             delay_between_requests: Duration::from_millis(25),
         },
         LoadTestScenario {
             name: "Stress Test".to_string(),
             concurrent_users: 200,
-            requests_per_user: 3,
+            requests_per_user: 20,
             delay_between_requests: Duration::from_millis(10),
         },
     ];
 
-    // Check if server is running
-    let client = Client::new();
-    match client.get(&format!("{}/health", base_url)).send().await {
-        Ok(response) if response.status().is_success() => {
-            println!("✅ Server is running and healthy");
-        }
-        _ => {
-            println!("❌ Server is not running. Please start the server first:");
-            println!("   cargo run --release");
-            return Ok(());
-        }
-    }
+    // Test pipeline operations
+    let test_operations = vec![
+        // Basic resize operation
+        vec![json!({
+            "operation": "resize",
+            "params": {
+                "width": 400,
+                "height": 300,
+                "maintain_aspect_ratio": true
+            },
+            "ignore_failure": false
+        })],
+        // Crop and rotate
+        vec![
+            json!({
+                "operation": "crop",
+                "params": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 200,
+                    "height": 200
+                },
+                "ignore_failure": false
+            }),
+            json!({
+                "operation": "rotate",
+                "params": {
+                    "angle": 90.0
+                },
+                "ignore_failure": false
+            })
+        ],
+        // Complex pipeline
+        vec![
+            json!({
+                "operation": "resize",
+                "params": {
+                    "width": 800,
+                    "height": 600,
+                    "maintain_aspect_ratio": true
+                },
+                "ignore_failure": false
+            }),
+            json!({
+                "operation": "grayscale",
+                "params": {},
+                "ignore_failure": false
+            }),
+            json!({
+                "operation": "blur",
+                "params": {
+                    "sigma": 2.0
+                },
+                "ignore_failure": false
+            })
+        ],
+    ];
 
-    // Run load test scenarios
+    // Run load tests
     for scenario in scenarios {
         println!("\n📊 Running scenario: {}", scenario.name);
-        println!("   Concurrent users: {}", scenario.concurrent_users);
-        println!("   Requests per user: {}", scenario.requests_per_user);
+        println!("   Users: {}, Requests per user: {}", 
+                 scenario.concurrent_users, scenario.requests_per_user);
         
-        let results = run_load_test_scenario(&client, base_url, &scenario).await?;
-        print_results(&scenario, &results);
+        let metrics = run_load_test_scenario(
+            &scenario,
+            base_url,
+            test_image_path,
+            &test_operations,
+        ).await?;
         
-        // Cool down between scenarios
-        println!("   Cooling down for 2 seconds...");
-        sleep(Duration::from_secs(2)).await;
+        print_test_results(&scenario, &metrics);
     }
 
-    println!("\n🎉 Load testing completed!");
+    println!("\n✅ Load testing completed!");
     Ok(())
 }
 
-#[derive(Clone)]
-struct LoadTestScenario {
-    name: String,
-    concurrent_users: u32,
-    requests_per_user: u32,
-    delay_between_requests: Duration,
-}
-
-struct LoadTestResults {
-    total_requests: u32,
-    successful_requests: u32,
-    failed_requests: u32,
-    total_duration: Duration,
-    average_response_time: Duration,
-    min_response_time: Duration,
-    max_response_time: Duration,
-    requests_per_second: f64,
-}
-
 async fn run_load_test_scenario(
-    client: &Client,
-    base_url: &str,
     scenario: &LoadTestScenario,
-) -> Result<LoadTestResults, Box<dyn std::error::Error>> {
-    let start_time = Instant::now();
-    let client = Arc::new(client.clone());
+    base_url: &str,
+    test_image_path: &str,
+    test_operations: &[Vec<serde_json::Value>],
+) -> Result<TestMetrics, Box<dyn std::error::Error>> {
+    let metrics = TestMetrics::new();
+    let client = Arc::new(Client::new());
     
-    // Create tasks for concurrent users
-    let mut tasks = Vec::new();
+    let start_time = Instant::now();
+    
+    // Spawn concurrent users
+    let mut handles = Vec::new();
     
     for user_id in 0..scenario.concurrent_users {
-        let client = Arc::clone(&client);
+        let scenario_clone = scenario.clone();
+        let metrics_clone = metrics.clone();
+        let client_clone = client.clone();
         let base_url = base_url.to_string();
-        let scenario = scenario.clone();
+        let test_image_path = test_image_path.to_string();
+        let test_operations = test_operations.to_vec();
         
-        let task = tokio::spawn(async move {
-            simulate_user(client, &base_url, user_id, &scenario).await
+        let handle = tokio::spawn(async move {
+            simulate_user(
+                user_id,
+                &scenario_clone,
+                &metrics_clone,
+                &client_clone,
+                &base_url,
+                &test_image_path,
+                &test_operations,
+            ).await
         });
         
-        tasks.push(task);
+        handles.push(handle);
     }
     
-    // Wait for all tasks to complete
-    let mut all_results = Vec::new();
-    for task in tasks {
-        match task.await {
-            Ok(user_results) => all_results.extend(user_results),
-            Err(e) => eprintln!("Task failed: {}", e),
+    // Wait for all users to complete
+    for handle in handles {
+        if let Err(e) = handle.await {
+            eprintln!("User simulation error: {}", e);
         }
     }
     
     let total_duration = start_time.elapsed();
+    println!("   Total test duration: {:.2}s", total_duration.as_secs_f64());
     
-    // Calculate statistics
-    let total_requests = all_results.len() as u32;
-    let successful_requests = all_results.iter().filter(|r| r.success).count() as u32;
-    let failed_requests = total_requests - successful_requests;
+    Ok(metrics)
+}
+
+async fn simulate_user(
+    user_id: u32,
+    scenario: &LoadTestScenario,
+    metrics: &TestMetrics,
+    client: &Client,
+    base_url: &str,
+    test_image_path: &str,
+    test_operations: &[Vec<serde_json::Value>],
+) {
+    for request_id in 0..scenario.requests_per_user {
+        // Select random operation set
+        let operations = &test_operations[request_id as usize % test_operations.len()];
+        
+        let start_time = Instant::now();
+        let success = match make_pipeline_request(
+            client,
+            base_url,
+            test_image_path,
+            operations,
+        ).await {
+            Ok(_) => true,
+            Err(e) => {
+                eprintln!("Request failed for user {}, request {}: {}", 
+                         user_id, request_id, e);
+                false
+            }
+        };
+        
+        let response_time = start_time.elapsed().as_millis() as u64;
+        metrics.record_request(response_time, success);
+        
+        // Add delay between requests
+        if request_id < scenario.requests_per_user - 1 {
+            sleep(scenario.delay_between_requests).await;
+        }
+    }
+}
+
+async fn make_pipeline_request(
+    client: &Client,
+    base_url: &str,
+    test_image_path: &str,
+    operations: &[serde_json::Value],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Read test image
+    let image_data = tokio::fs::read(test_image_path).await?;
     
-    let response_times: Vec<Duration> = all_results.iter()
-        .filter(|r| r.success)
-        .map(|r| r.response_time)
-        .collect();
+    // Create multipart form
+    let form = multipart::Form::new()
+        .part("image", multipart::Part::bytes(image_data)
+            .file_name("test_image.jpg")
+            .mime_str("image/jpeg")?)
+        .text("operations", serde_json::to_string(operations)?);
     
-    let average_response_time = if response_times.is_empty() {
-        Duration::from_millis(0)
-    } else {
-        let total_ms: u64 = response_times.iter().map(|d| d.as_millis() as u64).sum();
-        Duration::from_millis(total_ms / response_times.len() as u64)
-    };
+    // Make request
+    let response = client
+        .post(&format!("{}/pipeline", base_url))
+        .multipart(form)
+        .send()
+        .await?;
     
-    let min_response_time = response_times.iter().min().copied().unwrap_or_default();
-    let max_response_time = response_times.iter().max().copied().unwrap_or_default();
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()).into());
+    }
     
-    let requests_per_second = if total_duration.as_secs_f64() > 0.0 {
-        successful_requests as f64 / total_duration.as_secs_f64()
+    // Consume response body to complete the request
+    let _body = response.bytes().await?;
+    
+    Ok(())
+}
+
+fn print_test_results(scenario: &LoadTestScenario, metrics: &TestMetrics) {
+    let (total, successful, failed, avg_time, min_time, max_time) = metrics.get_stats();
+    
+    let success_rate = if total > 0 {
+        (successful as f64 / total as f64) * 100.0
     } else {
         0.0
     };
     
-    Ok(LoadTestResults {
-        total_requests,
-        successful_requests,
-        failed_requests,
-        total_duration,
-        average_response_time,
-        min_response_time,
-        max_response_time,
-        requests_per_second,
-    })
-}
-
-#[derive(Debug)]
-struct RequestResult {
-    success: bool,
-    response_time: Duration,
-    status_code: Option<u16>,
-}
-
-async fn simulate_user(
-    client: Arc<Client>,
-    base_url: &str,
-    user_id: u32,
-    scenario: &LoadTestScenario,
-) -> Vec<RequestResult> {
-    let mut results = Vec::new();
+    let total_expected = scenario.concurrent_users as u64 * scenario.requests_per_user as u64;
+    let throughput = successful as f64 / (total_expected as f64 / scenario.concurrent_users as f64);
     
-    // Test operations to perform
-    let operations = vec![
-        json!([
-            {"operation": "resize", "params": {"width": 200, "height": 200}},
-            {"operation": "grayscale", "params": {}}
-        ]),
-        json!([
-            {"operation": "resize", "params": {"width": 400, "height": 300}},
-            {"operation": "blur", "params": {"sigma": 1.0}}
-        ]),
-        json!([
-            {"operation": "crop", "params": {"x": 10, "y": 10, "width": 100, "height": 100}},
-            {"operation": "rotate", "params": {"degrees": 90.0}}
-        ]),
-    ];
-    
-    for request_num in 0..scenario.requests_per_user {
-        let start_time = Instant::now();
-        
-        // Select operation based on request number
-        let operation = &operations[request_num as usize % operations.len()];
-        
-        // Make request to pipeline endpoint
-        let result = match client
-            .get(&format!("{}/pipeline", base_url))
-            .query(&[
-                ("url", "https://httpbin.org/image/jpeg"),
-                ("operations", &operation.to_string()),
-            ])
-            .send()
-            .await
-        {
-            Ok(response) => {
-                let status_code = response.status().as_u16();
-                let success = response.status().is_success();
-                
-                // Consume response body to complete the request
-                let _ = response.bytes().await;
-                
-                RequestResult {
-                    success,
-                    response_time: start_time.elapsed(),
-                    status_code: Some(status_code),
-                }
-            }
-            Err(_) => RequestResult {
-                success: false,
-                response_time: start_time.elapsed(),
-                status_code: None,
-            },
-        };
-        
-        results.push(result);
-        
-        // Delay between requests
-        if request_num < scenario.requests_per_user - 1 {
-            sleep(scenario.delay_between_requests).await;
-        }
-    }
-    
-    results
-}
-
-fn print_results(scenario: &LoadTestScenario, results: &LoadTestResults) {
-    println!("   📈 Results:");
-    println!("      Total requests: {}", results.total_requests);
-    println!("      Successful: {} ({:.1}%)", 
-             results.successful_requests, 
-             (results.successful_requests as f64 / results.total_requests as f64) * 100.0);
-    println!("      Failed: {} ({:.1}%)", 
-             results.failed_requests,
-             (results.failed_requests as f64 / results.total_requests as f64) * 100.0);
-    println!("      Test duration: {:.2}s", results.total_duration.as_secs_f64());
-    println!("      Requests/sec: {:.2}", results.requests_per_second);
-    println!("      Avg response time: {}ms", results.average_response_time.as_millis());
-    println!("      Min response time: {}ms", results.min_response_time.as_millis());
-    println!("      Max response time: {}ms", results.max_response_time.as_millis());
+    println!("   Results:");
+    println!("     Total Requests: {}/{}", total, total_expected);
+    println!("     Successful: {} ({:.1}%)", successful, success_rate);
+    println!("     Failed: {}", failed);
+    println!("     Response Times:");
+    println!("       Average: {:.1}ms", avg_time);
+    println!("       Min: {}ms", if min_time == u64::MAX { 0 } else { min_time });
+    println!("       Max: {}ms", max_time);
+    println!("     Throughput: {:.1} req/s", throughput);
 }

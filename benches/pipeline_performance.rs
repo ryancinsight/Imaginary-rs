@@ -209,14 +209,30 @@ fn bench_format_performance(c: &mut Criterion) {
     
     let test_image = create_test_image(800, 600);
     
-    let format_operations = vec![
-        ("jpeg_high_quality", json!({"format": "jpeg", "quality": 95})),
-        ("jpeg_medium_quality", json!({"format": "jpeg", "quality": 80})),
-        ("jpeg_low_quality", json!({"format": "jpeg", "quality": 50})),
-        ("png", json!({"format": "png"})),
-        ("webp_high_quality", json!({"format": "webp", "quality": 95})),
-        ("webp_low_quality", json!({"format": "webp", "quality": 50})),
-    ];
+    // Separate lossy and lossless formats for proper benchmarking
+    let mut format_operations = Vec::new();
+    
+    // JPEG quality variations (lossy format)
+    for quality in [50, 80, 95] {
+        format_operations.push((
+            format!("jpeg_quality_{}", quality),
+            json!({"format": "jpeg", "quality": quality}),
+        ));
+    }
+    
+    // WebP quality variations (lossy format)
+    for quality in [50, 80, 95] {
+        format_operations.push((
+            format!("webp_quality_{}", quality),
+            json!({"format": "webp", "quality": quality}),
+        ));
+    }
+    
+    // PNG (lossless format - quality parameter ignored)
+    format_operations.push((
+        "png_lossless".to_string(),
+        json!({"format": "png"}),
+    ));
     
     for (format_name, params) in format_operations {
         let operations = vec![
