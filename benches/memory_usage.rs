@@ -212,10 +212,12 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
         })
     });
     
-    // Test with Arc (though this may not be directly applicable to current API)
-    group.bench_function("arc_reference", |b| {
+    // Test with Arc to demonstrate that it provides no benefit with the current
+    // `execute_pipeline` API, which requires a full clone of the image data.
+    group.bench_function("arc_reference_ineffective", |b| {
         b.iter(|| {
-            let img_clone = (*img_arc).clone(); // Still need to clone for the API
+            // This is a deep clone of the image data, not a cheap reference count increment.
+            let img_clone = (*img_arc).clone();
             black_box(execute_pipeline(
                 black_box(img_clone),
                 black_box(operations.clone()),
