@@ -100,9 +100,18 @@
 - **Multiple Load Scenarios**: Light (10 users) → Stress (200 users) testing
 - **Binary Integration**: Load test available as `cargo run --bin load_test`
 
-### Phase 2: Load Testing & Stress Testing ⏳
-**Status**: Ready to Start  
-**Estimated Time**: 60 minutes  
+### Phase 2: Load Testing & Stress Testing 🚀 *In Progress*
+**Status**: In Progress  
+
+#### RACI Matrix (Phase 2)
+
+| Task | R (Responsible) | A (Accountable) | C (Consulted) | I (Informed) |
+|------|-----------------|-----------------|---------------|--------------|
+| Concurrent Users Test | Dev Team | Tech Lead | QA | Stakeholders |
+| Stress Testing | DevOps | Tech Lead | Security | Stakeholders |
+| Performance Monitoring | DevOps | Tech Lead | SRE | Stakeholders |
+| Load Characteristics Doc | QA | Product Owner | Dev Team | Stakeholders |
+| Bottleneck Identification | Dev Team | Tech Lead | Architect | Stakeholders |
 
 #### Load Testing Tasks
 - [ ] **Concurrent Users**: Test 100, 500, 1000+ concurrent users

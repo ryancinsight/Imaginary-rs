@@ -21,7 +21,6 @@
 use crate::config::Config;
 use crate::http::errors::AppError;
 use crate::http::handlers::health_handler::{health_check, metrics, readiness_check};
-use crate::http::handlers::legacy_process_handler::process_image;
 use crate::http::handlers::pipeline_handler::process_pipeline;
 use crate::server::middleware::{concurrency_limit_middleware, metrics_middleware};
 use axum::{
@@ -118,7 +117,6 @@ pub fn create_router(config: Arc<Config>) -> Router {
         .route("/health", get(health_check))
         .route("/ready", get(readiness_check))
         .route("/metrics", get(metrics))
-        .route("/process", post(process_image))
         .route("/pipeline", post(process_pipeline))
         .layer(axum::middleware::from_fn(metrics_middleware))
         .layer(common_middleware)
@@ -193,7 +191,6 @@ pub async fn run_server(
         .route("/health", get(health_check))
         .route("/ready", get(readiness_check))
         .route("/metrics", get(metrics))
-        .route("/process", post(process_image))
         .route("/pipeline", post(process_pipeline))
         .layer(axum::middleware::from_fn(metrics_middleware))
         .layer(common_middleware)
