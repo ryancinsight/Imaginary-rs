@@ -139,16 +139,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             requests_per_user: 10,
             delay_between_requests: Duration::from_millis(50),
         },
+        // Updated scenarios matching PRD targets
         LoadTestScenario {
             name: "Heavy Load".to_string(),
             concurrent_users: 100,
-            requests_per_user: 15,
-            delay_between_requests: Duration::from_millis(25),
+            requests_per_user: 20,
+            delay_between_requests: Duration::from_millis(20),
+        },
+        LoadTestScenario {
+            name: "Extreme Load".to_string(),
+            concurrent_users: 500,
+            requests_per_user: 25,
+            delay_between_requests: Duration::from_millis(15),
         },
         LoadTestScenario {
             name: "Stress Test".to_string(),
-            concurrent_users: 200,
-            requests_per_user: 20,
+            concurrent_users: 1000,
+            requests_per_user: 30,
             delay_between_requests: Duration::from_millis(10),
         },
     ];
