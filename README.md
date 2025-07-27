@@ -66,12 +66,6 @@ GET /pipeline?url=https://example.com/image.jpg&operations=[{"operation":"resize
 
 **Response:** Processed image (binary)
 
-### POST /process (legacy)
-Legacy endpoint for single-operation (resize) processing.
-
-### POST /convert (legacy)
-Legacy endpoint for format conversion.
-
 ### GET /health
 Health check.
 
