@@ -49,8 +49,9 @@ fn resize_fast(
     // Convert to RGBA8 which is U8x4. This ensures compatibility.
     // Note: This involves a clone/conversion if not already RGBA8.
     let src_image = image.to_rgba8();
-    let src_width = NonZeroU32::new(src_image.width()).unwrap();
-    let src_height = NonZeroU32::new(src_image.height()).unwrap();
+    // Default to 1x1 if source image has 0 dimension (which technically shouldn't happen for loaded images but safe to handle)
+    let src_width = NonZeroU32::new(src_image.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+    let src_height = NonZeroU32::new(src_image.height()).unwrap_or(NonZeroU32::new(1).unwrap());
 
     let src = Image::from_vec_u8(
         src_width,
