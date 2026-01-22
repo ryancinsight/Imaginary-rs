@@ -3,8 +3,9 @@ use cached::proc_macro::cached;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
+use tokio::fs as tokio_fs;
+use tokio::io::AsyncReadExt;
 use tracing::info;
 
 #[derive(Debug, Default, Deserialize)]
@@ -84,13 +85,17 @@ pub fn check_cached_metadata(
 }
 
 // Generate operation hash
-pub fn generate_operation_hash(image_path: &Path, operation: &str, params: &str) -> Result<String> {
+pub async fn generate_operation_hash(
+    image_path: &Path,
+    operation: &str,
+    params: &str,
+) -> Result<String> {
     let mut hasher = Sha256::new();
 
     // Hash the image content
-    let mut file = fs::File::open(image_path)?;
+    let mut file = tokio_fs::File::open(image_path).await?;
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
+    file.read_to_end(&mut buffer).await?;
     hasher.update(&buffer);
 
     // Hash the operation and parameters
@@ -100,8 +105,8 @@ pub fn generate_operation_hash(image_path: &Path, operation: &str, params: &str)
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-pub fn cache_result(image_path: &Path, operation: &str, params: &str, _result_path: &Path) {
-    if let Ok(hash) = generate_operation_hash(image_path, operation, params) {
+async fn cache_result(image_path: &Path, operation: &str, params: &str, _result_path: &Path) {
+    if let Ok(hash) = generate_operation_hash(image_path, operation, params).await {
         let cached = get_cached_result(image_path.to_path_buf(), operation, params);
         if cached.is_none() {
             info!("Cached result for operation: {}", hash);
