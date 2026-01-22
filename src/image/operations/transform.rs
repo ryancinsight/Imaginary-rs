@@ -6,7 +6,8 @@ use crate::image::params::{
     CropParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams, RotateParams,
     SmartCropParams, ThumbnailParams, Validate, ZoomParams,
 };
-use fast_image_resize::{FilterType as FastFilterType, Image, PixelType, ResizeAlg, Resizer};
+use fast_image_resize::images::Image;
+use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
 use std::num::NonZeroU32;
 
@@ -14,7 +15,7 @@ impl From<&ResizeFilter> for ResizeAlg {
     fn from(filter: &ResizeFilter) -> Self {
         match filter {
             ResizeFilter::Lanczos3 => ResizeAlg::Convolution(FastFilterType::Lanczos3),
-            ResizeFilter::Gaussian => ResizeAlg::Convolution(FastFilterType::Lanczos3), // Fallback: Gaussian not in fast_image_resize 2.7.3
+            ResizeFilter::Gaussian => ResizeAlg::Convolution(FastFilterType::Gaussian),
             ResizeFilter::Nearest => ResizeAlg::Nearest,
             ResizeFilter::Triangle => ResizeAlg::Convolution(FastFilterType::Bilinear),
             ResizeFilter::CatmullRom => ResizeAlg::Convolution(FastFilterType::CatmullRom),
@@ -54,18 +55,21 @@ fn resize_fast(
     let src_height = NonZeroU32::new(src_image.height()).unwrap_or(NonZeroU32::new(1).unwrap());
 
     let src = Image::from_vec_u8(
-        src_width,
-        src_height,
+        src_width.get(),
+        src_height.get(),
         src_image.into_raw(),
         PixelType::U8x4,
     )
     .expect("Failed to create source image for resizing");
 
-    let mut dst = Image::new(width_nz, height_nz, PixelType::U8x4);
+    let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x4);
 
-    let mut resizer = Resizer::new(ResizeAlg::from(filter));
-    // Use .view() and .view_mut() if Image doesn't implement the trait directly or if required by API version
-    resizer.resize(&src.view(), &mut dst.view_mut()).expect("Resize failed");
+    let mut resizer = Resizer::new();
+    let resize_opts = ResizeOptions::new().resize_alg(ResizeAlg::from(filter));
+
+    resizer
+        .resize(&src, &mut dst, &resize_opts)
+        .expect("Resize failed");
 
     let dst_raw = dst.into_vec();
     DynamicImage::ImageRgba8(
