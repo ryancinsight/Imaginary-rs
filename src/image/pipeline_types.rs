@@ -32,6 +32,8 @@ pub enum SupportedOperation {
     Crop,
     SmartCrop,
     Resize,
+    Fit,
+    Fill,
     Enlarge,
     Extract,
     Rotate,
@@ -48,6 +50,8 @@ pub enum SupportedOperation {
     AdjustBrightness, // Added from existing imaginary-rs operations
     AdjustContrast,   // Added from existing imaginary-rs operations
     Sharpen,          // Added from existing imaginary-rs operations
+    Gamma,
+    Negate,
                       // Add other operations as they are implemented and supported in pipeline
 }
 

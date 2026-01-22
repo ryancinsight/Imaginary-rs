@@ -3,11 +3,27 @@
 //! This module provides functions for resizing, rotating, cropping, flipping, enlarging, extracting, zooming, smart cropping, and creating thumbnails.
 
 use crate::image::params::{
-    CropParams, ExtractParams, ResizeFilter, ResizeParams, RotateParams, SmartCropParams,
-    ThumbnailParams, Validate, ZoomParams,
+    CropParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams, RotateParams,
+    SmartCropParams, ThumbnailParams, Validate, ZoomParams,
 };
+use fast_image_resize::images::Image;
+use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use std::num::NonZeroU32;
 
+impl From<&ResizeFilter> for ResizeAlg {
+    fn from(filter: &ResizeFilter) -> Self {
+        match filter {
+            ResizeFilter::Lanczos3 => ResizeAlg::Convolution(FastFilterType::Lanczos3),
+            ResizeFilter::Gaussian => ResizeAlg::Convolution(FastFilterType::Gaussian),
+            ResizeFilter::Nearest => ResizeAlg::Nearest,
+            ResizeFilter::Triangle => ResizeAlg::Convolution(FastFilterType::Bilinear),
+            ResizeFilter::CatmullRom => ResizeAlg::Convolution(FastFilterType::CatmullRom),
+        }
+    }
+}
+
+// Fallback for image crate operations (rotate/crop)
 impl From<&ResizeFilter> for FilterType {
     fn from(filter: &ResizeFilter) -> Self {
         match filter {
@@ -20,10 +36,91 @@ impl From<&ResizeFilter> for FilterType {
     }
 }
 
-/// Resize the image to the given dimensions.
+/// Helper function to perform resizing using fast_image_resize.
+/// This converts the image to RGBA8, resizes it, and returns a new DynamicImage.
+fn resize_fast(
+    image: &DynamicImage,
+    width: u32,
+    height: u32,
+    filter: &ResizeFilter,
+) -> DynamicImage {
+    let width_nz = NonZeroU32::new(width).unwrap_or(NonZeroU32::new(1).unwrap());
+    let height_nz = NonZeroU32::new(height).unwrap_or(NonZeroU32::new(1).unwrap());
+
+    // Convert to RGBA8 which is U8x4. This ensures compatibility.
+    // Note: This involves a clone/conversion if not already RGBA8.
+    let src_image = image.to_rgba8();
+    // Default to 1x1 if source image has 0 dimension (which technically shouldn't happen for loaded images but safe to handle)
+    let src_width = NonZeroU32::new(src_image.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+    let src_height = NonZeroU32::new(src_image.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+
+    let src = Image::from_vec_u8(
+        src_width.get(),
+        src_height.get(),
+        src_image.into_raw(),
+        PixelType::U8x4,
+    )
+    .expect("Failed to create source image for resizing");
+
+    let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x4);
+
+    let mut resizer = Resizer::new();
+    let resize_opts = ResizeOptions::new().resize_alg(ResizeAlg::from(filter));
+
+    resizer
+        .resize(&src, &mut dst, &resize_opts)
+        .expect("Resize failed");
+
+    let dst_raw = dst.into_vec();
+    DynamicImage::ImageRgba8(
+        image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst_raw)
+            .expect("Failed to create buffer from resized data"),
+    )
+}
+
+/// Resize the image to the given dimensions using fast_image_resize.
 pub fn resize(image: &DynamicImage, params: &ResizeParams) -> DynamicImage {
-    let filter = FilterType::from(&params.filter);
-    image.resize_exact(params.width, params.height, filter)
+    resize_fast(image, params.width, params.height, &params.filter)
+}
+
+/// Resize the image to fit within the given dimensions, preserving aspect ratio.
+pub fn fit(image: &DynamicImage, params: &FitParams) -> DynamicImage {
+    params.validate().expect("Invalid fit params");
+    let (orig_w, orig_h) = image.dimensions();
+
+    // Calculate new dimensions
+    // Fit means the result must fit INSIDE the box.
+    let scale_w = (params.width as f64) / (orig_w as f64);
+    let scale_h = (params.height as f64) / (orig_h as f64);
+    let scale = scale_w.min(scale_h);
+
+    let new_w = (orig_w as f64 * scale).round().max(1.0) as u32;
+    let new_h = (orig_h as f64 * scale).round().max(1.0) as u32;
+
+    resize_fast(image, new_w, new_h, &params.filter)
+}
+
+/// Resize the image to fill the given dimensions, cropping excess.
+pub fn fill(image: &DynamicImage, params: &FillParams) -> DynamicImage {
+    params.validate().expect("Invalid fill params");
+    let (orig_w, orig_h) = image.dimensions();
+
+    // Calculate scale to COVER
+    let scale_w = (params.width as f64) / (orig_w as f64);
+    let scale_h = (params.height as f64) / (orig_h as f64);
+    let scale = scale_w.max(scale_h);
+
+    let resized_w = (orig_w as f64 * scale).round().max(1.0) as u32;
+    let resized_h = (orig_h as f64 * scale).round().max(1.0) as u32;
+
+    // Resize first
+    let resized = resize_fast(image, resized_w, resized_h, &params.filter);
+
+    // Then Center Crop
+    let x = (resized_w.saturating_sub(params.width)) / 2;
+    let y = (resized_h.saturating_sub(params.height)) / 2;
+
+    resized.crop_imm(x, y, params.width, params.height)
 }
 
 /// Rotate the image by the given degrees.
@@ -56,8 +153,7 @@ pub fn enlarge(image: &DynamicImage, params: &ResizeParams) -> DynamicImage {
     params.validate().expect("Invalid enlarge params");
     let (orig_w, orig_h) = image.dimensions();
     if params.width > orig_w || params.height > orig_h {
-        let filter = FilterType::from(&params.filter);
-        image.resize(params.width, params.height, filter)
+        resize_fast(image, params.width, params.height, &params.filter)
     } else {
         image.clone()
     }
@@ -80,7 +176,9 @@ pub fn zoom(image: &DynamicImage, params: &ZoomParams) -> DynamicImage {
     let (orig_w, orig_h) = image.dimensions();
     let new_w = ((orig_w as f32) * params.factor).round().max(1.0) as u32;
     let new_h = ((orig_h as f32) * params.factor).round().max(1.0) as u32;
-    image.resize(new_w, new_h, FilterType::Lanczos3)
+    // Zoom usually implies high quality
+    let filter = ResizeFilter::Lanczos3;
+    resize_fast(image, new_w, new_h, &filter)
 }
 
 /// Perform a smart crop on the image using the given parameters.
@@ -97,7 +195,15 @@ pub fn smart_crop(image: &DynamicImage, params: &SmartCropParams) -> DynamicImag
 /// Create a thumbnail of the image with the given parameters.
 pub fn thumbnail(image: &DynamicImage, params: &ThumbnailParams) -> DynamicImage {
     params.validate().expect("Invalid thumbnail params");
-    image.thumbnail(params.width, params.height)
+
+    // Calculate thumbnail dimensions (preserving aspect ratio)
+    let (orig_w, orig_h) = image.dimensions();
+    let scale = (params.width as f64 / orig_w as f64).min(params.height as f64 / orig_h as f64);
+
+    let new_w = (orig_w as f64 * scale).round().max(1.0) as u32;
+    let new_h = (orig_h as f64 * scale).round().max(1.0) as u32;
+
+    resize_fast(image, new_w, new_h, &ResizeFilter::Lanczos3)
 }
 
 #[cfg(test)]
@@ -148,6 +254,39 @@ mod tests {
         };
         let cropped = crop(&img, &params);
         assert_eq!(cropped.dimensions(), (50, 50));
+    }
+
+    #[test]
+    fn test_fit() {
+        let img = create_test_image(100, 50); // 2:1 ratio
+        let params = FitParams {
+            width: 50,
+            height: 50,
+            filter: ResizeFilter::Nearest,
+        };
+        let fitted = fit(&img, &params);
+        // Should fit into 50x50.
+        // 100x50 -> 50x25 to preserve aspect ratio.
+        assert_eq!(fitted.dimensions(), (50, 25));
+    }
+
+    #[test]
+    fn test_fill() {
+        let img = create_test_image(100, 50); // 2:1 ratio
+        let params = FillParams {
+            width: 50,
+            height: 50,
+            filter: ResizeFilter::Nearest,
+        };
+        let filled = fill(&img, &params);
+        // Should fill 50x50.
+        // Scale to cover 50x50:
+        // scale_w = 50/100 = 0.5
+        // scale_h = 50/50 = 1.0
+        // max(0.5, 1.0) = 1.0
+        // resized = 100x50
+        // crop center 50x50
+        assert_eq!(filled.dimensions(), (50, 50));
     }
 
     #[test]

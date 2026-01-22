@@ -161,11 +161,34 @@ fn execute_single_operation(
                 AppError::BadRequest(format!("Invalid WatermarkImage params: {}", e))
             })?;
             Ok(operations::watermark::watermark_image(image, &params))
-        } // Catch any other future variants if SupportedOperation enum expands beyond these
-          // _ => Err(AppError::InvalidOperation(format!(
-          //     "Unknown or unsupported operation: {:?}.",
-          //     spec.operation
-          // ))),
+        }
+        SupportedOperation::Fit => {
+            let params: params::FitParams = parse_params(&spec.params, "Fit")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Fit params: {}", e))
+            })?;
+            Ok(operations::fit(image, &params))
+        }
+        SupportedOperation::Fill => {
+            let params: params::FillParams = parse_params(&spec.params, "Fill")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Fill params: {}", e))
+            })?;
+            Ok(operations::fill(image, &params))
+        }
+        SupportedOperation::Gamma => {
+            let params: params::GammaParams = parse_params(&spec.params, "Gamma")?;
+            params.validate().map_err(|e: ImageError| {
+                AppError::BadRequest(format!("Invalid Gamma params: {}", e))
+            })?;
+            Ok(operations::gamma(image, &params))
+        }
+        SupportedOperation::Negate => Ok(operations::negate(image)),
+        // Catch any other future variants if SupportedOperation enum expands beyond these
+        // _ => Err(AppError::InvalidOperation(format!(
+        //     "Unknown or unsupported operation: {:?}.",
+        //     spec.operation
+        // ))),
     }
 }
 
@@ -776,5 +799,37 @@ mod tests {
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (100, 100)); // Should be unchanged
+    }
+
+    #[test]
+    fn test_pipeline_new_operations() {
+        let image = create_test_image(100, 50);
+        let operations = vec![
+            PipelineOperationSpec {
+                operation: SupportedOperation::Fit,
+                ignore_failure: false,
+                params: json!({"width": 50, "height": 50}),
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Fill,
+                ignore_failure: false,
+                params: json!({"width": 25, "height": 25}),
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Gamma,
+                ignore_failure: false,
+                params: json!({"value": 2.2}),
+            },
+            PipelineOperationSpec {
+                operation: SupportedOperation::Negate,
+                ignore_failure: false,
+                params: json!({}),
+            },
+        ];
+
+        let result = execute_pipeline(image, operations);
+        assert!(result.is_ok(), "Pipeline with new operations failed: {:?}", result);
+        let processed = result.unwrap();
+        assert_eq!(processed.dimensions(), (25, 25));
     }
 }

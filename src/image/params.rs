@@ -374,3 +374,69 @@ impl Validate for WatermarkImageParams {
         Ok(())
     }
 }
+
+/// Parameters for fitting an image within dimensions (preserving aspect ratio).
+/// - width, height: target bounding box (must be > 0)
+/// - filter: filter algorithm
+#[derive(Debug, Deserialize, Default)]
+pub struct FitParams {
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+    #[serde(default)]
+    pub filter: ResizeFilter,
+}
+
+impl Validate for FitParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Parameters for filling dimensions (resize to cover + crop).
+/// - width, height: target size (must be > 0)
+/// - filter: filter algorithm
+#[derive(Debug, Deserialize, Default)]
+pub struct FillParams {
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+    #[serde(default)]
+    pub filter: ResizeFilter,
+}
+
+impl Validate for FillParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Parameters for gamma correction.
+/// - value: gamma value (must be > 0)
+#[derive(Debug, Deserialize, Default)]
+pub struct GammaParams {
+    pub value: f32,
+}
+
+impl Validate for GammaParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.value <= 0.0 {
+            return Err(ImageError::InvalidParameters(
+                "Gamma value must be > 0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
