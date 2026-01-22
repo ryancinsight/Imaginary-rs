@@ -100,9 +100,10 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
 
 /// Overlays a watermark image onto the base image at the specified position and opacity.
 pub(crate) fn watermark_image(
-    mut image: DynamicImage,
+    image: &DynamicImage,
     params: &WatermarkImageParams,
 ) -> DynamicImage {
+    let mut image = image.clone();
     // For demonstration, use a placeholder watermark image (solid color or pattern)
     // In a real implementation, params would include the watermark image bytes or path
     let (img_width, img_height) = image.dimensions();
@@ -297,7 +298,7 @@ mod tests {
             opacity: 0.5,
             position: WatermarkPosition::Center,
         };
-        let result = watermark_image(img, &params);
+        let result = watermark_image(&img, &params);
         // Check that the center region is not pure black (watermark applied)
         let px = result.get_pixel(100, 50);
         assert!(px[0] > 0 && px[3] == 255);
@@ -310,7 +311,7 @@ mod tests {
             opacity: 0.8,
             position: WatermarkPosition::TopLeft,
         };
-        let result = watermark_image(img, &params);
+        let result = watermark_image(&img, &params);
         let px = result.get_pixel(10, 10);
         assert!(px[0] > 0 && px[3] == 255);
     }

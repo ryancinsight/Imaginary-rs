@@ -7,15 +7,29 @@ pub trait Validate {
     fn validate(&self) -> Result<(), ImageError>;
 }
 
+/// Filter type to use for resizing.
+#[derive(Debug, Deserialize, Default)]
+pub enum ResizeFilter {
+    #[default]
+    Lanczos3,
+    Gaussian,
+    Nearest,
+    Triangle,
+    CatmullRom,
+}
+
 /// Parameters for resizing an image.
 /// - width: target width (must be > 0)
 /// - height: target height (must be > 0)
+/// - filter: filter algorithm (default: Lanczos3)
 #[derive(Debug, Deserialize, Default)]
 pub struct ResizeParams {
     #[serde(default = "default_dimension")]
     pub width: u32,
     #[serde(default = "default_dimension")]
     pub height: u32,
+    #[serde(default)]
+    pub filter: ResizeFilter,
 }
 
 fn default_dimension() -> u32 {
