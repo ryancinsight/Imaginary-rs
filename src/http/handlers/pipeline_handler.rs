@@ -60,21 +60,26 @@ pub async fn process_pipeline(
         _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
     };
 
-    let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
-        .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
-
-    let processed_image = execute_pipeline(dynamic_image, operations_spec.clone())?;
-
     // Determine output format - default to original format unless convert operation specifies otherwise
     let output_format = determine_output_format(&operations_spec, original_format);
     let content_type = output_format.to_mime_type();
 
-    let mut final_image_bytes = Vec::new();
-    processed_image
-        .write_to(&mut Cursor::new(&mut final_image_bytes), output_format)
-        .map_err(|e| {
-            AppError::ImageProcessingError(format!("Failed to write processed image: {}", e))
-        })?;
+    let final_image_bytes = tokio::task::spawn_blocking(move || {
+        let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
+            .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
+
+        let processed_image = execute_pipeline(dynamic_image, operations_spec)?;
+
+        let mut bytes = Vec::new();
+        processed_image
+            .write_to(&mut Cursor::new(&mut bytes), output_format)
+            .map_err(|e| {
+                AppError::ImageProcessingError(format!("Failed to write processed image: {}", e))
+            })?;
+        Ok::<Vec<u8>, AppError>(bytes)
+    })
+    .await
+    .map_err(|e| AppError::InternalServerError(format!("Image processing task failed: {}", e)))??;
 
     Response::builder()
         .header("Content-Type", content_type)
