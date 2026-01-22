@@ -70,6 +70,7 @@ num_cpus = "1.16"
 
 # System monitoring
 sysinfo = "0.32"
+fast_image_resize = "2.7.3"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
