@@ -16,8 +16,8 @@ use image::DynamicImage;
 /// # Examples
 /// # use image::DynamicImage;
 /// # let img = DynamicImage::new_rgb8(100, 100);
-/// let gray = grayscale(img);
-pub fn grayscale(image: DynamicImage) -> DynamicImage {
+/// let gray = grayscale(&img);
+pub fn grayscale(image: &DynamicImage) -> DynamicImage {
     image.to_luma8().into()
 }
 
@@ -29,7 +29,7 @@ pub fn grayscale(image: DynamicImage) -> DynamicImage {
 ///
 /// # Returns
 /// A new `DynamicImage` with adjusted brightness.
-pub fn adjust_brightness(image: DynamicImage, value: i32) -> DynamicImage {
+pub fn adjust_brightness(image: &DynamicImage, value: i32) -> DynamicImage {
     image.brighten(value)
 }
 
@@ -41,7 +41,7 @@ pub fn adjust_brightness(image: DynamicImage, value: i32) -> DynamicImage {
 ///
 /// # Returns
 /// A new `DynamicImage` with adjusted contrast.
-pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
+pub fn adjust_contrast(image: &DynamicImage, value: f32) -> DynamicImage {
     image.adjust_contrast(value)
 }
 
@@ -52,7 +52,7 @@ pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
 ///
 /// # Returns
 /// A new `DynamicImage` sharpened using a 3x3 kernel.
-pub fn sharpen(image: DynamicImage) -> DynamicImage {
+pub fn sharpen(image: &DynamicImage) -> DynamicImage {
     let sharpen_kernel: [f32; 9] = [-1.0, -1.0, -1.0, -1.0, 9.0, -1.0, -1.0, -1.0, -1.0];
     image.filter3x3(&sharpen_kernel)
 }
@@ -65,7 +65,7 @@ pub fn sharpen(image: DynamicImage) -> DynamicImage {
 ///
 /// # Returns
 /// A new `DynamicImage` blurred by the specified sigma.
-pub fn blur(image: DynamicImage, params: &BlurParams) -> DynamicImage {
+pub fn blur(image: &DynamicImage, params: &BlurParams) -> DynamicImage {
     if params.minampl.is_some() {
         tracing::warn!("Blur operation: 'minampl' parameter is provided but not currently used by the image crate's basic blur. Only sigma is applied.");
     }
@@ -90,28 +90,28 @@ mod tests {
     #[test]
     fn test_grayscale() {
         let img = create_test_image(100, 100);
-        let gray = grayscale(img);
+        let gray = grayscale(&img);
         assert_eq!(gray.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_adjust_brightness() {
         let img = create_test_image(100, 100);
-        let bright = adjust_brightness(img, 20);
+        let bright = adjust_brightness(&img, 20);
         assert_eq!(bright.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_adjust_contrast() {
         let img = create_test_image(100, 100);
-        let contrast = adjust_contrast(img, 1.5);
+        let contrast = adjust_contrast(&img, 1.5);
         assert_eq!(contrast.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_sharpen() {
         let img = create_test_image(100, 100);
-        let sharp = sharpen(img);
+        let sharp = sharpen(&img);
         assert_eq!(sharp.dimensions(), (100, 100));
     }
 
@@ -122,7 +122,7 @@ mod tests {
             sigma: 2.0,
             minampl: None,
         };
-        let blurred = blur(img, &params);
+        let blurred = blur(&img, &params);
         assert_eq!(blurred.dimensions(), (100, 100));
     }
 }

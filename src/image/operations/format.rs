@@ -19,9 +19,9 @@ use std::io::Cursor;
 /// # Examples
 /// # use image::DynamicImage;
 /// # let img = DynamicImage::new_rgb8(100, 100);
-/// let converted = convert_format(img, &FormatConversionParams { format: "jpeg".to_string(), quality: Some(85) });
+/// let converted = convert_format(&img, &FormatConversionParams { format: "jpeg".to_string(), quality: Some(85) });
 pub fn convert_format(
-    image: DynamicImage,
+    image: &DynamicImage,
     params: &FormatConversionParams,
 ) -> Result<DynamicImage, AppError> {
     let mut buffer = Vec::new();
@@ -57,8 +57,8 @@ pub fn convert_format(
 ///
 /// # Returns
 /// The input `DynamicImage` (no-op).
-pub fn autorotate(image: DynamicImage) -> DynamicImage {
-    image
+pub fn autorotate(image: &DynamicImage) -> DynamicImage {
+    image.clone()
 }
 
 #[cfg(test)]
@@ -82,14 +82,14 @@ mod tests {
             format: "png".to_string(),
             quality: Some(90),
         };
-        let converted_img = convert_format(img, &params).unwrap();
+        let converted_img = convert_format(&img, &params).unwrap();
         assert_eq!(converted_img.color(), ColorType::Rgba8);
     }
 
     #[test]
     fn test_autorotate() {
         let img = create_test_image(100, 100);
-        let rotated = autorotate(img);
+        let rotated = autorotate(&img);
         assert_eq!(rotated.dimensions(), (100, 100));
     }
 }

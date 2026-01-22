@@ -21,7 +21,7 @@ pub fn execute_pipeline(
     for spec in operations_spec {
         let operation_name = spec.operation; // For logging/error messages
         tracing::info!(operation = ?operation_name, params = ?spec.params, "Starting operation");
-        match execute_single_operation(image.clone(), &spec) {
+        match execute_single_operation(&image, &spec) {
             Ok(processed_image) => {
                 tracing::info!(operation = ?operation_name, "Operation succeeded");
                 image = processed_image;
@@ -49,7 +49,7 @@ pub fn execute_pipeline(
 }
 
 fn execute_single_operation(
-    image: DynamicImage,
+    image: &DynamicImage,
     spec: &PipelineOperationSpec,
 ) -> Result<DynamicImage, AppError> {
     tracing::info!(operation = ?spec.operation, params = ?spec.params, "Executing single operation");
@@ -151,7 +151,7 @@ fn execute_single_operation(
             params.validate().map_err(|e: ImageError| {
                 AppError::BadRequest(format!("Invalid Watermark params: {}", e))
             })?;
-            operations::watermark::watermark(&image, &params)
+            operations::watermark::watermark(image, &params)
                 .map_err(AppError::ImageProcessingError)
         }
         SupportedOperation::WatermarkImage => {
@@ -456,7 +456,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 75));
@@ -471,7 +471,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_err());
     }
 
@@ -484,7 +484,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -497,7 +497,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -510,7 +510,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_err());
     }
 
@@ -523,7 +523,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 50));
@@ -538,7 +538,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_err());
     }
 
@@ -551,7 +551,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -564,7 +564,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -577,7 +577,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -590,7 +590,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -603,7 +603,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -616,7 +616,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -629,7 +629,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_ok());
     }
 
@@ -642,7 +642,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(&image, &spec);
         assert!(result.is_err());
     }
 
