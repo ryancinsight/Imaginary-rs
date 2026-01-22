@@ -6,6 +6,26 @@ description = "Fast, simple, scalable HTTP microservice for high-level image pro
 authors = ["Ryan <ryancinsight>"]
 license = "MIT"
 repository = "https://github.com/ryancinsight/imaginary-rs"
+readme = "README.md"
+keywords = ["image-processing", "http", "microservice", "resize", "imaginary"]
+categories = ["web-programming::http-server", "multimedia::images"]
+homepage = "https://github.com/ryancinsight/imaginary-rs"
+documentation = "https://github.com/ryancinsight/imaginary-rs"
+exclude = [
+    "images_test/*",
+    "k8s/*",
+    "scripts/*",
+    "test_assets/*",
+    ".github/*",
+    "docker-compose.*",
+    "Dockerfile",
+    "DEPLOYMENT.md",
+    "DEVELOPMENT_CHECKLIST.md",
+    "PERFORMANCE_SUMMARY.md",
+    "PRD.md",
+    "test.html",
+    "CONTRIBUTING.md"
+]
 
 [dependencies]
 # Web framework
@@ -114,10 +134,6 @@ debug = true
 [[bin]]
 name = "imaginary"
 path = "src/main.rs"
-
-[[bin]]
-name = "load_test"
-path = "scripts/load_test.rs"
 
 [lib]
 name = "imaginary"  # Make sure this matches your crate name
