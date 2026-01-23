@@ -21,13 +21,14 @@ pub fn execute_pipeline(
     for spec in operations_spec {
         let operation_name = spec.operation; // For logging/error messages
         tracing::info!(operation = ?operation_name, params = ?spec.params, "Starting operation");
-        match execute_single_operation(&image, &spec) {
+        match execute_single_operation(image, &spec) {
             Ok(processed_image) => {
                 tracing::info!(operation = ?operation_name, "Operation succeeded");
                 image = processed_image;
             }
-            Err(e) => {
+            Err((returned_image, e)) => {
                 tracing::error!(operation = ?operation_name, params = ?spec.params, error = %e, "Operation failed");
+                image = returned_image;
                 if spec.ignore_failure {
                     tracing::warn!(operation = ?operation_name, "Operation failed but was ignored");
                 } else {
@@ -49,146 +50,254 @@ pub fn execute_pipeline(
 }
 
 fn execute_single_operation(
-    image: &DynamicImage,
+    image: DynamicImage,
     spec: &PipelineOperationSpec,
-) -> Result<DynamicImage, AppError> {
+) -> Result<DynamicImage, (DynamicImage, AppError)> {
     tracing::info!(operation = ?spec.operation, params = ?spec.params, "Executing single operation");
+
+    // Helper to map errors while returning image
+    let map_err = |image: DynamicImage, e: AppError| (image, e);
+    let map_valid_err = |image: DynamicImage, op: &str, e: ImageError| (image, AppError::BadRequest(format!("Invalid {} params: {}", op, e)));
+
     match spec.operation {
         SupportedOperation::Resize => {
-            let params: params::ResizeParams = parse_params(&spec.params, "Resize")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Resize params: {}", e))
-            })?;
-            Ok(operations::resize(image, &params))
+            match parse_params::<params::ResizeParams>(&spec.params, "Resize") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                         return Err(map_valid_err(image, "Resize", e));
+                    }
+                    Ok(operations::resize(image, &params))
+                },
+                Err(e) => Err((image, e))
+             }
         }
         SupportedOperation::Rotate => {
-            let params: params::RotateParams = parse_params(&spec.params, "Rotate")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Rotate params: {}", e))
-            })?;
-            Ok(operations::rotate(image, &params))
+            match parse_params::<params::RotateParams>(&spec.params, "Rotate") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Rotate", e));
+                    }
+                    Ok(operations::rotate(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Crop => {
-            let params: params::CropParams = parse_params(&spec.params, "Crop")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Crop params: {}", e))
-            })?;
-            Ok(operations::crop(image, &params))
+            match parse_params::<params::CropParams>(&spec.params, "Crop") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Crop", e));
+                    }
+                    Ok(operations::crop(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Grayscale => Ok(operations::grayscale(image)),
         SupportedOperation::Blur => {
-            let params: params::BlurParams = parse_params(&spec.params, "Blur")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Blur params: {}", e))
-            })?;
-            Ok(operations::blur(image, &params))
+            match parse_params::<params::BlurParams>(&spec.params, "Blur") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Blur", e));
+                    }
+                    Ok(operations::blur(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Flip => Ok(operations::flip_vertical(image)),
         SupportedOperation::Flop => Ok(operations::flip_horizontal(image)),
         SupportedOperation::Convert => {
-            let params: params::FormatConversionParams = parse_params(&spec.params, "Convert")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Convert params: {}", e))
-            })?;
-            operations::convert_format(image, &params) // Returns Result<DynamicImage, AppError>
+            match parse_params::<params::FormatConversionParams>(&spec.params, "Convert") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Convert", e));
+                    }
+                    // convert_format returns Result<DynamicImage, AppError>
+                    // We need to map Err(e) -> Err((image, e)).
+                    // But convert_format consumes image? Not yet.
+                    // If convert_format fails, it might have consumed image if it was designed that way.
+                    // But currently I am refactoring convert_format to take ownership.
+                    // If convert_format takes ownership and fails, can it return the image back?
+                    // Typically 'try' operations that consume input return it on failure.
+                    // I should update convert_format signature to: Result<DynamicImage, (DynamicImage, AppError)>?
+                    // Or just Result<DynamicImage, AppError> and if it fails, the image is gone/partially consumed?
+                    // But convert_format usually writes to a buffer. It doesn't modify image in place until it succeeds (returns new image).
+                    // So if it takes 'image', it still holds it.
+                    // Ideally operations that can fail should return the original image on failure if possible.
+
+                    // For now, let's assume operations::convert_format consumes image.
+                    // If it fails, we might lose the image.
+                    // For 'ignore_failure' to work, we need the original image.
+                    // So operations that can fail should probably take &DynamicImage or return the original image on error.
+                    // `convert_format` creates a NEW image (new format). The input image is source.
+                    // So we can pass &image to convert_format?
+                    // But I want to pass ownership to allow reuse/drop.
+                    // If I pass ownership, I can't get it back easily unless the function returns it.
+
+                    // Strategy: For operations that *transform* (like resize), they usually succeed or we don't care about intermediate state if they fail (we can't recover).
+                    // But convert_format failure (e.g. invalid quality) shouldn't destroy the image if we want to ignore failure.
+                    // So convert_format should ideally take &DynamicImage if it doesn't modify in place?
+                    // Or take ownership and return it back on error.
+
+                    // Let's make convert_format return Result<DynamicImage, (DynamicImage, AppError)>.
+                    // Or, since convert_format is just encoding, maybe keep it taking &DynamicImage?
+                    // But I said I would refactor it to take DynamicImage.
+
+                    // If I pass `image.clone()` to convert_format (old way), I have the original.
+                    // If I pass `image` (new way), I lose it.
+
+                    // Let's implement convert_format to return `Result<DynamicImage, (DynamicImage, AppError)>` in step 4.
+
+                    match operations::convert_format(image, &params) {
+                        Ok(img) => Ok(img),
+                        Err((returned_img, e)) => Err((returned_img, e)),
+                    }
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::AdjustBrightness => {
-            let params: params::AdjustBrightnessParams =
-                parse_params(&spec.params, "AdjustBrightness")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid AdjustBrightness params: {}", e))
-            })?;
-            Ok(operations::adjust_brightness(image, params.value))
+            match parse_params::<params::AdjustBrightnessParams>(&spec.params, "AdjustBrightness") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "AdjustBrightness", e));
+                    }
+                    Ok(operations::adjust_brightness(image, params.value))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::AdjustContrast => {
-            let params: params::AdjustContrastParams =
-                parse_params(&spec.params, "AdjustContrast")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid AdjustContrast params: {}", e))
-            })?;
-            Ok(operations::adjust_contrast(image, params.value))
+            match parse_params::<params::AdjustContrastParams>(&spec.params, "AdjustContrast") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "AdjustContrast", e));
+                    }
+                    Ok(operations::adjust_contrast(image, params.value))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Sharpen => Ok(operations::sharpen(image)),
         SupportedOperation::Thumbnail => {
-            let params: params::ThumbnailParams = parse_params(&spec.params, "Thumbnail")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Thumbnail params: {}", e))
-            })?;
-            Ok(operations::thumbnail(image, &params))
+            match parse_params::<params::ThumbnailParams>(&spec.params, "Thumbnail") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Thumbnail", e));
+                    }
+                    Ok(operations::thumbnail(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Enlarge => {
-            // Enlarge uses ResizeParams, but only allows upscaling
-            let params: params::ResizeParams = parse_params(&spec.params, "Enlarge")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Enlarge params: {}", e))
-            })?;
-            Ok(operations::enlarge(image, &params))
+            match parse_params::<params::ResizeParams>(&spec.params, "Enlarge") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Enlarge", e));
+                    }
+                    Ok(operations::enlarge(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Extract => {
-            let params: params::ExtractParams = parse_params(&spec.params, "Extract")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Extract params: {}", e))
-            })?;
-            Ok(operations::extract(image, &params))
+            match parse_params::<params::ExtractParams>(&spec.params, "Extract") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Extract", e));
+                    }
+                    Ok(operations::extract(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Autorotate => Ok(operations::autorotate(image)),
         SupportedOperation::Zoom => {
-            let params: params::ZoomParams = parse_params(&spec.params, "Zoom")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Zoom params: {}", e))
-            })?;
-            Ok(operations::zoom(image, &params))
+            match parse_params::<params::ZoomParams>(&spec.params, "Zoom") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Zoom", e));
+                    }
+                    Ok(operations::zoom(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::SmartCrop => {
-            let params: params::SmartCropParams = parse_params(&spec.params, "SmartCrop")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid SmartCrop params: {}", e))
-            })?;
-            Ok(operations::smart_crop(image, &params))
+            match parse_params::<params::SmartCropParams>(&spec.params, "SmartCrop") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "SmartCrop", e));
+                    }
+                    Ok(operations::smart_crop(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Watermark => {
-            let params: params::WatermarkParams = parse_params(&spec.params, "Watermark")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Watermark params: {}", e))
-            })?;
-            operations::watermark::watermark(image, &params)
-                .map_err(AppError::ImageProcessingError)
+            match parse_params::<params::WatermarkParams>(&spec.params, "Watermark") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Watermark", e));
+                    }
+                    // watermark returns Result<DynamicImage, String> (mapped to AppError)
+                    // We need to handle failure and return image.
+                    // watermark will be refactored to take ownership and return Result<DynamicImage, (DynamicImage, String)>
+                    match operations::watermark::watermark(image, &params) {
+                        Ok(img) => Ok(img),
+                        Err((returned_img, e_str)) => Err((returned_img, AppError::ImageProcessingError(e_str))),
+                    }
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::WatermarkImage => {
-            let params: params::WatermarkImageParams =
-                parse_params(&spec.params, "WatermarkImage")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid WatermarkImage params: {}", e))
-            })?;
-            Ok(operations::watermark::watermark_image(image, &params))
+            match parse_params::<params::WatermarkImageParams>(&spec.params, "WatermarkImage") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "WatermarkImage", e));
+                    }
+                    Ok(operations::watermark::watermark_image(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Fit => {
-            let params: params::FitParams = parse_params(&spec.params, "Fit")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Fit params: {}", e))
-            })?;
-            Ok(operations::fit(image, &params))
+            match parse_params::<params::FitParams>(&spec.params, "Fit") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Fit", e));
+                    }
+                    Ok(operations::fit(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Fill => {
-            let params: params::FillParams = parse_params(&spec.params, "Fill")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Fill params: {}", e))
-            })?;
-            Ok(operations::fill(image, &params))
+            match parse_params::<params::FillParams>(&spec.params, "Fill") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Fill", e));
+                    }
+                    Ok(operations::fill(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Gamma => {
-            let params: params::GammaParams = parse_params(&spec.params, "Gamma")?;
-            params.validate().map_err(|e: ImageError| {
-                AppError::BadRequest(format!("Invalid Gamma params: {}", e))
-            })?;
-            Ok(operations::gamma(image, &params))
+            match parse_params::<params::GammaParams>(&spec.params, "Gamma") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Gamma", e));
+                    }
+                    Ok(operations::gamma(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
         }
         SupportedOperation::Negate => Ok(operations::negate(image)),
-        // Catch any other future variants if SupportedOperation enum expands beyond these
-        // _ => Err(AppError::InvalidOperation(format!(
-        //     "Unknown or unsupported operation: {:?}.",
-        //     spec.operation
-        // ))),
     }
 }
 
@@ -203,12 +312,6 @@ fn parse_params<T: serde::de::DeserializeOwned>(
         ))
     })
 }
-
-// Comprehensive unit tests for execute_pipeline and execute_single_operation
-// ✓ Test successful pipeline with multiple operations
-// ✓ Test pipeline with an operation that fails (with and without ignore_failure)
-// ✓ Test parsing of valid and invalid params for each supported operation
-// ✓ Test unimplemented operations
 
 #[cfg(test)]
 mod tests {
@@ -259,6 +362,11 @@ mod tests {
             "Resize did not produce expected dimensions"
         );
     }
+
+    // ... (rest of the tests need to be preserved)
+    // I will include all tests from the original file, adjusting if necessary.
+    // The tests in the original file used execute_pipeline and execute_single_operation.
+    // execute_single_operation tests will need to be updated because the signature changed.
 
     #[test]
     fn test_watermark_pipeline() {
@@ -479,7 +587,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 75));
@@ -494,8 +602,10 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
+        let (returned_image, _err) = result.err().unwrap();
+        assert_eq!(returned_image.dimensions(), (100, 100)); // Should get original image back
     }
 
     #[test]
@@ -507,7 +617,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -520,7 +630,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -533,7 +643,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
 
@@ -546,7 +656,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 50));
@@ -561,7 +671,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
 
@@ -574,7 +684,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -587,7 +697,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -600,7 +710,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -613,7 +723,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -626,7 +736,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -639,7 +749,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -652,7 +762,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_ok());
     }
 
@@ -665,7 +775,7 @@ mod tests {
             ignore_failure: false,
         };
 
-        let result = execute_single_operation(&image, &spec);
+        let result = execute_single_operation(image, &spec);
         assert!(result.is_err());
     }
 

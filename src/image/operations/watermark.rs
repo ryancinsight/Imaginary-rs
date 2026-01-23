@@ -16,7 +16,7 @@ use rusttype::{point, Font, Scale};
 /// * `params` - The watermark parameters (text, opacity, position, font size, color, x, y).
 ///
 /// # Returns
-/// A new `DynamicImage` with the watermark applied, or an error if the font cannot be loaded.
+/// A new `DynamicImage` with the watermark applied, or an error if the font cannot be loaded (returning original image).
 ///
 /// # Examples
 /// # use image::DynamicImage;
@@ -31,18 +31,29 @@ use rusttype::{point, Font, Scale};
 ///     x: None,
 ///     y: None,
 /// };
-/// let watermarked = watermark(&img, &wm_params)?;
+/// let watermarked = watermark(img, &wm_params).map_err(|e| e.1)?;
 /// # Ok(())
 /// # }
-pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<DynamicImage, String> {
+pub fn watermark(
+    image: DynamicImage,
+    params: &WatermarkParams,
+) -> Result<DynamicImage, (DynamicImage, String)> {
     // Always operate on RGBA8
-    let mut rgba_image = image.to_rgba8();
+    let mut rgba_image = image.into_rgba8();
     // Load the font data from a byte array
     let font_data = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/fonts/DejaVuSans.ttf"
     ));
-    let font = Font::try_from_bytes(font_data).ok_or_else(|| "Failed to load font".to_string())?;
+    let font = match Font::try_from_bytes(font_data) {
+        Some(f) => f,
+        None => {
+            return Err((
+                DynamicImage::ImageRgba8(rgba_image),
+                "Failed to load font".to_string(),
+            ))
+        }
+    };
 
     let scale = Scale::uniform(params.font_size as f32);
     let color = Rgba([
@@ -100,13 +111,15 @@ pub fn watermark(image: &DynamicImage, params: &WatermarkParams) -> Result<Dynam
 
 /// Overlays a watermark image onto the base image at the specified position and opacity.
 pub(crate) fn watermark_image(
-    image: &DynamicImage,
+    image: DynamicImage,
     params: &WatermarkImageParams,
 ) -> DynamicImage {
-    let mut image = image.clone();
+    // Use into_rgba8 for better performance and in-place modification
+    let mut rgba_image = image.into_rgba8();
+
     // For demonstration, use a placeholder watermark image (solid color or pattern)
     // In a real implementation, params would include the watermark image bytes or path
-    let (img_width, img_height) = image.dimensions();
+    let (img_width, img_height) = rgba_image.dimensions();
     let watermark_width = img_width / 4;
     let watermark_height = img_height / 4;
     let watermark = RgbaImage::from_pixel(
@@ -136,17 +149,18 @@ pub(crate) fn watermark_image(
             let ix = x + wx;
             let iy = y + wy;
             if ix < img_width && iy < img_height {
-                let mut base_px = image.get_pixel(ix, iy);
+                let mut base_px = rgba_image.get_pixel_mut(ix, iy);
                 // Alpha blend
                 let alpha = px[3] as f32 / 255.0;
                 for c in 0..3 {
                     base_px[c] = ((1.0 - alpha) * base_px[c] as f32 + alpha * px[c] as f32) as u8;
                 }
-                image.put_pixel(ix, iy, base_px);
+                // base_px[3] is preserved (or should we blend alpha too? Usually alpha blend implies output alpha change if src has alpha)
+                // But simplified here as per original code structure
             }
         }
     }
-    image
+    DynamicImage::ImageRgba8(rgba_image)
 }
 
 #[cfg(test)]
@@ -175,7 +189,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -191,7 +205,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -207,7 +221,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -223,7 +237,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -239,7 +253,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -255,7 +269,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -271,7 +285,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -287,7 +301,7 @@ mod tests {
             x: None,
             y: None,
         };
-        let result = watermark(&img, &params);
+        let result = watermark(img, &params);
         assert!(result.is_ok());
     }
 
@@ -298,7 +312,7 @@ mod tests {
             opacity: 0.5,
             position: WatermarkPosition::Center,
         };
-        let result = watermark_image(&img, &params);
+        let result = watermark_image(img, &params);
         // Check that the center region is not pure black (watermark applied)
         let px = result.get_pixel(100, 50);
         assert!(px[0] > 0 && px[3] == 255);
@@ -311,7 +325,7 @@ mod tests {
             opacity: 0.8,
             position: WatermarkPosition::TopLeft,
         };
-        let result = watermark_image(&img, &params);
+        let result = watermark_image(img, &params);
         let px = result.get_pixel(10, 10);
         assert!(px[0] > 0 && px[3] == 255);
     }

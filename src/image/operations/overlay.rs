@@ -25,15 +25,15 @@ use rusttype::{point, Font, Scale};
 /// let result = overlay(base, overlay_img, 10, 10).unwrap();
 #[allow(dead_code)]
 pub(crate) fn overlay(
-    image: DynamicImage,
+    mut image: DynamicImage,
     overlay_image: DynamicImage,
     x: u32,
     y: u32,
 ) -> Result<DynamicImage, AppError> {
-    let mut img = image.clone();
-    img.copy_from(&overlay_image, x, y)
+    image
+        .copy_from(&overlay_image, x, y)
         .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
-    Ok(img)
+    Ok(image)
 }
 
 /// Draws text onto the image at the specified position and font size.
@@ -52,7 +52,7 @@ pub(crate) fn draw_text(
     let font = Font::try_from_bytes(font_data as &[u8]).expect("Failed to load font");
     let scale = Scale::uniform(font_size as f32);
     let color = Rgba([255, 255, 255, 255]);
-    let mut rgba = image.to_rgba8();
+    let mut rgba = image.into_rgba8();
     let v_metrics = font.v_metrics(scale);
     let start = point(x as f32, y as f32 + v_metrics.ascent);
     for glyph in font.layout(text, scale, start) {
