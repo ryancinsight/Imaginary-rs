@@ -13,6 +13,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 static REQUEST_COUNT: AtomicU64 = AtomicU64::new(0);
 static ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
 static START_TIME: std::sync::OnceLock<SystemTime> = std::sync::OnceLock::new();
+static SYSTEM: std::sync::OnceLock<std::sync::Mutex<System>> = std::sync::OnceLock::new();
 
 /// Initialize the start time for uptime calculation
 pub fn init_health_metrics() {
@@ -100,7 +101,10 @@ pub async fn metrics() -> impl IntoResponse {
 
 /// Check memory usage - returns true if usage is reasonable (less than 90%)
 fn check_memory_usage() -> bool {
-    let mut system = System::new();
+    let mut system = SYSTEM
+        .get_or_init(|| std::sync::Mutex::new(System::new()))
+        .lock()
+        .unwrap();
     system.refresh_memory();
 
     let total_memory = system.total_memory();
@@ -140,7 +144,10 @@ fn check_disk_space() -> bool {
 
 /// Get current memory usage in bytes
 fn get_memory_usage() -> u64 {
-    let mut system = System::new();
+    let mut system = SYSTEM
+        .get_or_init(|| std::sync::Mutex::new(System::new()))
+        .lock()
+        .unwrap();
     system.refresh_memory();
 
     // Return used memory in bytes
