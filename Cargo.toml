@@ -111,6 +111,10 @@ harness = false
 name = "memory_usage"
 harness = false
 
+[[bench]]
+name = "system_monitor"
+harness = false
+
 [features]
 default = ["jpeg", "png", "webp"]
 jpeg = []
