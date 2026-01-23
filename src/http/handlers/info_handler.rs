@@ -76,7 +76,6 @@ pub async fn get_info(
             }
             image_data
                 .ok_or_else(|| AppError::BadRequest("Missing image data".to_string()))?
-                .to_vec()
         }
         _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
     };
