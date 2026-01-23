@@ -11,6 +11,7 @@
 use std::io::Cursor;
 use std::sync::Arc;
 
+use axum::body::Bytes;
 use axum::{
     extract::{Multipart, Query, State},
     http::Method,
@@ -90,7 +91,7 @@ pub async fn process_pipeline(
 async fn handle_get_request(
     query: Option<Query<PipelineQuery>>,
     config: &Config,
-) -> Result<(Vec<u8>, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
+) -> Result<(Bytes, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
     let Query(params) =
         query.ok_or_else(|| AppError::BadRequest("Missing query parameters".to_string()))?;
 
@@ -121,11 +122,11 @@ async fn handle_get_request(
 async fn handle_post_request(
     multipart: Option<Multipart>,
     config: &Config,
-) -> Result<(Vec<u8>, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
+) -> Result<(Bytes, Vec<PipelineOperationSpec>, ImageFormat), AppError> {
     let mut multipart =
         multipart.ok_or_else(|| AppError::BadRequest("Missing multipart data".to_string()))?;
 
-    let mut image_data: Option<Vec<u8>> = None;
+    let mut image_data: Option<Bytes> = None;
     let mut operations_json_str: Option<String> = None;
 
     while let Some(field) = multipart
@@ -146,7 +147,7 @@ async fn handle_post_request(
                         data.len()
                     )));
                 }
-                image_data = Some(data.into());
+                image_data = Some(data);
             }
             "operations" => {
                 operations_json_str = Some(

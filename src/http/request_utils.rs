@@ -1,3 +1,4 @@
+use axum::body::Bytes;
 use crate::config::Config;
 use crate::http::errors::AppError;
 use once_cell::sync::Lazy;
@@ -43,7 +44,7 @@ pub fn is_safe_ip(ip: IpAddr) -> bool {
     }
 }
 
-pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Vec<u8>, AppError> {
+pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Bytes, AppError> {
     // Parse and validate URL
     let url =
         Url::parse(url_str).map_err(|e| AppError::BadRequest(format!("Invalid URL: {}", e)))?;
@@ -131,7 +132,7 @@ pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Vec<
         )));
     }
 
-    Ok(bytes.to_vec())
+    Ok(bytes)
 }
 
 #[cfg(test)]
