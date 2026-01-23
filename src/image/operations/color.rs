@@ -6,28 +6,28 @@ use crate::image::params::{BlurParams, GammaParams};
 use image::DynamicImage;
 
 /// Convert an image to grayscale.
-pub fn grayscale(image: &DynamicImage) -> DynamicImage {
+pub fn grayscale(image: DynamicImage) -> DynamicImage {
     image.to_luma8().into()
 }
 
 /// Adjust the brightness of an image by the given value.
-pub fn adjust_brightness(image: &DynamicImage, value: i32) -> DynamicImage {
+pub fn adjust_brightness(image: DynamicImage, value: i32) -> DynamicImage {
     image.brighten(value)
 }
 
 /// Adjust the contrast of an image by the given value.
-pub fn adjust_contrast(image: &DynamicImage, value: f32) -> DynamicImage {
+pub fn adjust_contrast(image: DynamicImage, value: f32) -> DynamicImage {
     image.adjust_contrast(value)
 }
 
 /// Sharpen the image using a simple kernel.
-pub fn sharpen(image: &DynamicImage) -> DynamicImage {
+pub fn sharpen(image: DynamicImage) -> DynamicImage {
     let sharpen_kernel: [f32; 9] = [-1.0, -1.0, -1.0, -1.0, 9.0, -1.0, -1.0, -1.0, -1.0];
     image.filter3x3(&sharpen_kernel)
 }
 
 /// Apply a Gaussian blur to the image with the given parameters.
-pub fn blur(image: &DynamicImage, params: &BlurParams) -> DynamicImage {
+pub fn blur(image: DynamicImage, params: &BlurParams) -> DynamicImage {
     if params.minampl.is_some() {
         tracing::warn!("Blur operation: 'minampl' parameter is provided but not currently used by the image crate's basic blur. Only sigma is applied.");
     }
@@ -35,7 +35,7 @@ pub fn blur(image: &DynamicImage, params: &BlurParams) -> DynamicImage {
 }
 
 /// Apply gamma correction to the image.
-pub fn gamma(image: &DynamicImage, params: &GammaParams) -> DynamicImage {
+pub fn gamma(image: DynamicImage, params: &GammaParams) -> DynamicImage {
     let value = params.value;
     let mut lut = [0u8; 256];
     for i in 0..256 {
@@ -45,7 +45,7 @@ pub fn gamma(image: &DynamicImage, params: &GammaParams) -> DynamicImage {
     }
 
     // Convert to RGBA8 to handle all formats uniformly and enable in-place modification
-    let mut rgba = image.to_rgba8();
+    let mut rgba = image.into_rgba8();
     for pixel in rgba.pixels_mut() {
         pixel[0] = lut[pixel[0] as usize];
         pixel[1] = lut[pixel[1] as usize];
@@ -56,10 +56,9 @@ pub fn gamma(image: &DynamicImage, params: &GammaParams) -> DynamicImage {
 }
 
 /// Invert the colors of the image.
-pub fn negate(image: &DynamicImage) -> DynamicImage {
-    let mut out = image.clone();
-    out.invert();
-    out
+pub fn negate(mut image: DynamicImage) -> DynamicImage {
+    image.invert();
+    image
 }
 
 #[cfg(test)]
@@ -80,28 +79,28 @@ mod tests {
     #[test]
     fn test_grayscale() {
         let img = create_test_image(100, 100);
-        let gray = grayscale(&img);
+        let gray = grayscale(img);
         assert_eq!(gray.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_adjust_brightness() {
         let img = create_test_image(100, 100);
-        let bright = adjust_brightness(&img, 20);
+        let bright = adjust_brightness(img, 20);
         assert_eq!(bright.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_adjust_contrast() {
         let img = create_test_image(100, 100);
-        let contrast = adjust_contrast(&img, 1.5);
+        let contrast = adjust_contrast(img, 1.5);
         assert_eq!(contrast.dimensions(), (100, 100));
     }
 
     #[test]
     fn test_sharpen() {
         let img = create_test_image(100, 100);
-        let sharp = sharpen(&img);
+        let sharp = sharpen(img);
         assert_eq!(sharp.dimensions(), (100, 100));
     }
 
@@ -112,7 +111,7 @@ mod tests {
             sigma: 2.0,
             minampl: None,
         };
-        let blurred = blur(&img, &params);
+        let blurred = blur(img, &params);
         assert_eq!(blurred.dimensions(), (100, 100));
     }
 
@@ -120,7 +119,7 @@ mod tests {
     fn test_gamma() {
         let img = create_test_image(100, 100);
         let params = GammaParams { value: 2.2 };
-        let corrected = gamma(&img, &params);
+        let corrected = gamma(img, &params);
         assert_eq!(corrected.dimensions(), (100, 100));
         // Check pixel value change
         let p = corrected.get_pixel(0, 0);
@@ -131,7 +130,7 @@ mod tests {
     #[test]
     fn test_negate() {
         let img = create_test_image(100, 100);
-        let inverted = negate(&img);
+        let inverted = negate(img);
         assert_eq!(inverted.dimensions(), (100, 100));
         let p = inverted.get_pixel(0, 0);
         assert_eq!(p[0], 255 - 128);

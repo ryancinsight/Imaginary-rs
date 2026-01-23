@@ -14,16 +14,16 @@ use std::io::Cursor;
 /// * `params` - The format conversion parameters (format, quality).
 ///
 /// # Returns
-/// A new `DynamicImage` in the specified format, or an error if conversion fails.
+/// A new `DynamicImage` in the specified format, or an error if conversion fails (returning the original image).
 ///
 /// # Examples
 /// # use image::DynamicImage;
 /// # let img = DynamicImage::new_rgb8(100, 100);
-/// let converted = convert_format(&img, &FormatConversionParams { format: "jpeg".to_string(), quality: Some(85) });
+/// let converted = convert_format(img, &FormatConversionParams { format: "jpeg".to_string(), quality: Some(85) });
 pub fn convert_format(
-    image: &DynamicImage,
+    image: DynamicImage,
     params: &FormatConversionParams,
-) -> Result<DynamicImage, AppError> {
+) -> Result<DynamicImage, (DynamicImage, AppError)> {
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
 
@@ -37,17 +37,24 @@ pub fn convert_format(
         "tiff" | "tif" => ImageFormat::Tiff,
         "ico" => ImageFormat::Ico,
         _ => {
-            return Err(AppError::UnsupportedMediaType(format!(
-                "Unsupported image format: {}",
-                params.format
-            )))
+            return Err((
+                image,
+                AppError::UnsupportedMediaType(format!(
+                    "Unsupported image format: {}",
+                    params.format
+                )),
+            ))
         }
     };
 
-    image
-        .write_to(&mut cursor, format)
-        .map_err(|e| AppError::ImageProcessingError(e.to_string()))?;
-    image::load_from_memory(&buffer).map_err(|e| AppError::ImageProcessingError(e.to_string()))
+    if let Err(e) = image.write_to(&mut cursor, format) {
+        return Err((image, AppError::ImageProcessingError(e.to_string())));
+    }
+
+    match image::load_from_memory(&buffer) {
+        Ok(img) => Ok(img),
+        Err(e) => Err((image, AppError::ImageProcessingError(e.to_string()))),
+    }
 }
 
 /// Autorotate the image based on its EXIF orientation.
@@ -57,8 +64,8 @@ pub fn convert_format(
 ///
 /// # Returns
 /// The input `DynamicImage` (no-op).
-pub fn autorotate(image: &DynamicImage) -> DynamicImage {
-    image.clone()
+pub fn autorotate(image: DynamicImage) -> DynamicImage {
+    image
 }
 
 #[cfg(test)]
@@ -82,14 +89,14 @@ mod tests {
             format: "png".to_string(),
             quality: Some(90),
         };
-        let converted_img = convert_format(&img, &params).unwrap();
+        let converted_img = convert_format(img, &params).unwrap();
         assert_eq!(converted_img.color(), ColorType::Rgba8);
     }
 
     #[test]
     fn test_autorotate() {
         let img = create_test_image(100, 100);
-        let rotated = autorotate(&img);
+        let rotated = autorotate(img);
         assert_eq!(rotated.dimensions(), (100, 100));
     }
 }
