@@ -3,67 +3,55 @@
 //! This module defines the data structures used to specify a sequence of image operations (pipeline)
 //! and the set of operations supported by the pipeline executor.
 
-use serde::Deserialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-
-// Add other necessary imports if/when they become clear.
-// For now, params.rs might be needed for actual parameter structs,
-// but we\'ll handle dynamic dispatch first.
-// use super::params::*; // Example if params were directly embedded
+use super::params::*;
 
 /// Specification for a single operation in an image processing pipeline.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PipelineOperationSpec {
-    /// The operation to perform.
-    pub operation: SupportedOperation,
-    /// If true, ignore failure of this operation and continue the pipeline.
-    #[serde(default)]
-    pub ignore_failure: bool,
-    /// Parameters for the operation (operation-specific, dynamic).
-    #[serde(default)]
-    pub params: Value, // Using serde_json::Value for dynamic params
-}
-
-/// Enum of all supported image operations for the pipeline.
-#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Copy, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
 #[serde(rename_all = "camelCase")]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
-pub enum SupportedOperation {
-    Crop,
-    SmartCrop,
-    Resize,
-    Fit,
-    Fill,
-    Embed,
-    Enlarge,
-    Extract,
-    Rotate,
-    Autorotate,
-    Flip,
-    Flop,
-    Thumbnail,
-    Zoom,
-    Convert,
-    Watermark,
-    WatermarkImage,
-    Blur,
-    Grayscale,        // Added from existing imaginary-rs operations
-    AdjustBrightness, // Added from existing imaginary-rs operations
-    AdjustContrast,   // Added from existing imaginary-rs operations
-    Sharpen,          // Added from existing imaginary-rs operations
-    Gamma,
-    Negate,
-                      // Add other operations as they are implemented and supported in pipeline
+pub struct PipelineOperationSpec {
+    /// The operation to perform, including its parameters.
+    #[serde(flatten)]
+    pub operation: PipelineOperation,
+    /// If true, ignore failure of this operation and continue the pipeline.
+    #[serde(default)]
+    pub ignore_failure: bool,
 }
 
-// Consider adding a method to PipelineOperationSpec to try and parse `params`
-// into a specific operation\'s parameter struct.
-// e.g., impl PipelineOperationSpec {
-//     pub fn try_into_resize_params(&self) -> Result<ResizeParams, serde_json::Error> {
-//         serde_json::from_value(self.params.clone())
-//     }
-// }
-// This would require specific knowledge of param structs here, or a more generic approach.
+/// Enum of all supported image operations for the pipeline, including their parameters.
+#[derive(Debug, Clone, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[serde(tag = "operation", content = "params")]
+#[serde(rename_all = "camelCase")]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
+pub enum PipelineOperation {
+    Resize(ResizeParams),
+    Crop(CropParams),
+    Rotate(RotateParams),
+    Blur(BlurParams),
+    Watermark(WatermarkParams),
+    WatermarkImage(WatermarkImageParams),
+    Embed(EmbedParams),
+    Convert(FormatConversionParams),
+    SmartCrop(SmartCropParams),
+    AdjustBrightness(AdjustBrightnessParams),
+    AdjustContrast(AdjustContrastParams),
+    Thumbnail(ThumbnailParams),
+    Extract(ExtractParams),
+    Zoom(ZoomParams),
+    Fit(FitParams),
+    Fill(FillParams),
+    Gamma(GammaParams),
+    Enlarge(ResizeParams),
+
+    // Operations without parameters
+    Grayscale,
+    Flip,
+    Flop,
+    Sharpen,
+    Autorotate,
+    Negate,
+}

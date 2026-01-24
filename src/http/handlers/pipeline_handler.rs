@@ -19,7 +19,7 @@ use axum::{
 };
 use image::ImageFormat;
 use serde::Deserialize;
-use serde_json::{from_str, from_value};
+use serde_json::from_str;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
@@ -27,9 +27,8 @@ use crate::{
     http::errors::AppError,
     http::request_utils::{fetch_image_from_url, MAX_IMAGE_SIZE},
     image::{
-        params::FormatConversionParams, // For parsing convert params
         pipeline_executor::execute_pipeline,
-        pipeline_types::{PipelineOperationSpec, SupportedOperation}, // For checking op type
+        pipeline_types::{PipelineOperation, PipelineOperationSpec},
     },
 };
 
@@ -196,23 +195,21 @@ fn determine_output_format(
 ) -> ImageFormat {
     // Check the last convert operation to determine output format
     for spec in operations_spec.iter().rev() {
-        if spec.operation == SupportedOperation::Convert {
-            if let Ok(convert_params) = from_value::<FormatConversionParams>(spec.params.clone()) {
-                match convert_params.format.to_lowercase().as_str() {
-                    "png" => return ImageFormat::Png,
-                    "jpeg" | "jpg" => return ImageFormat::Jpeg,
-                    "gif" => return ImageFormat::Gif,
-                    "webp" => return ImageFormat::WebP,
-                    "avif" => return ImageFormat::Avif,
-                    "bmp" => return ImageFormat::Bmp,
-                    "tiff" | "tif" => return ImageFormat::Tiff,
-                    _ => {
-                        tracing::warn!(
-                            "Unsupported format in convert operation: {}, using original format",
-                            convert_params.format
-                        );
-                        return original_format;
-                    }
+        if let PipelineOperation::Convert(convert_params) = &spec.operation {
+            match convert_params.format.to_lowercase().as_str() {
+                "png" => return ImageFormat::Png,
+                "jpeg" | "jpg" => return ImageFormat::Jpeg,
+                "gif" => return ImageFormat::Gif,
+                "webp" => return ImageFormat::WebP,
+                "avif" => return ImageFormat::Avif,
+                "bmp" => return ImageFormat::Bmp,
+                "tiff" | "tif" => return ImageFormat::Tiff,
+                _ => {
+                    tracing::warn!(
+                        "Unsupported format in convert operation: {}, using original format",
+                        convert_params.format
+                    );
+                    return original_format;
                 }
             }
         }
@@ -240,19 +237,24 @@ mod tests {
         })
     }
 
+    // Helper
+    fn create_op_spec(json: serde_json::Value) -> PipelineOperationSpec {
+        serde_json::from_value(json).expect("Failed to create PipelineOperationSpec")
+    }
+
     #[test]
     fn test_determine_output_format_with_convert() {
         let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 100, "height": 100}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Convert,
-                params: json!({"format": "jpeg", "quality": 85}),
-                ignore_failure: false,
-            },
+            create_op_spec(json!({
+                "operation": "resize",
+                "params": {"width": 100, "height": 100},
+                "ignoreFailure": false
+            })),
+            create_op_spec(json!({
+                "operation": "convert",
+                "params": {"format": "jpeg", "quality": 85},
+                "ignoreFailure": false
+            })),
         ];
 
         let result = determine_output_format(&operations, ImageFormat::Png);
@@ -261,11 +263,11 @@ mod tests {
 
     #[test]
     fn test_determine_output_format_without_convert() {
-        let operations = vec![PipelineOperationSpec {
-            operation: SupportedOperation::Resize,
-            params: json!({"width": 100, "height": 100}),
-            ignore_failure: false,
-        }];
+        let operations = vec![create_op_spec(json!({
+            "operation": "resize",
+            "params": {"width": 100, "height": 100},
+            "ignoreFailure": false
+        }))];
 
         let result = determine_output_format(&operations, ImageFormat::Png);
         assert_eq!(result, ImageFormat::Png);
@@ -274,21 +276,21 @@ mod tests {
     #[test]
     fn test_determine_output_format_multiple_converts() {
         let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Convert,
-                params: json!({"format": "png"}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 100, "height": 100}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Convert,
-                params: json!({"format": "webp"}),
-                ignore_failure: false,
-            },
+            create_op_spec(json!({
+                "operation": "convert",
+                "params": {"format": "png"},
+                "ignoreFailure": false
+            })),
+            create_op_spec(json!({
+                "operation": "resize",
+                "params": {"width": 100, "height": 100},
+                "ignoreFailure": false
+            })),
+            create_op_spec(json!({
+                "operation": "convert",
+                "params": {"format": "webp"},
+                "ignoreFailure": false
+            })),
         ];
 
         // Should use the last convert operation
