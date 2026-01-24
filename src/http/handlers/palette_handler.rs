@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
     config::Config,
@@ -27,7 +28,9 @@ fn default_max_colors() -> u8 {
     5
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct PaletteResponse {
     colors: Vec<[u8; 3]>,
 }

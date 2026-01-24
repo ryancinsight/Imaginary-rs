@@ -5,6 +5,7 @@
 
 use serde::Deserialize;
 use serde_json::Value;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 // Add other necessary imports if/when they become clear.
 // For now, params.rs might be needed for actual parameter structs,
@@ -26,8 +27,10 @@ pub struct PipelineOperationSpec {
 }
 
 /// Enum of all supported image operations for the pipeline.
-#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Clone, Copy, Archive, RkyvDeserialize, RkyvSerialize)]
 #[serde(rename_all = "camelCase")]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub enum SupportedOperation {
     Crop,
     SmartCrop,

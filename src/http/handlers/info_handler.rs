@@ -7,6 +7,7 @@ use axum::{
 use image::GenericImageView;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
     config::Config,
@@ -21,16 +22,18 @@ pub struct InfoQuery {
     url: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct ImageInfo {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
     #[serde(rename = "type")]
-    format: String,
-    space: String,
-    channels: u8,
-    depth: u8,
-    has_alpha: bool,
+    pub format: String,
+    pub space: String,
+    pub channels: u8,
+    pub depth: u8,
+    pub has_alpha: bool,
 }
 
 pub async fn get_info(
