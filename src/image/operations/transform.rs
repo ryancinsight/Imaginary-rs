@@ -3,13 +3,14 @@
 //! This module provides functions for resizing, rotating, cropping, flipping, enlarging, extracting, zooming, smart cropping, and creating thumbnails.
 
 use crate::image::params::{
-    CropParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams, RotateParams,
+    CropParams, EmbedParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams, RotateParams,
     SmartCropParams, ThumbnailParams, Validate, ZoomParams,
 };
 use fast_image_resize::images::Image;
 use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
-use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use imageproc::gradients::sobel_gradients;
+use rayon::prelude::*;
 use std::num::NonZeroU32;
 
 impl From<&ResizeFilter> for ResizeAlg {
@@ -195,6 +196,35 @@ pub fn fill(image: DynamicImage, params: &FillParams) -> DynamicImage {
     resized.crop_imm(x, y, params.width, params.height)
 }
 
+/// Embed the image in a box of the given dimensions, centered, with the given background color.
+pub fn embed(image: DynamicImage, params: &EmbedParams) -> DynamicImage {
+    params.validate().expect("Invalid embed params");
+
+    // 1. Fit the image into the box
+    let fit_params = FitParams {
+        width: params.width,
+        height: params.height,
+        filter: ResizeFilter::Lanczos3,
+    };
+    let resized = fit(image, &fit_params).into_rgba8();
+
+    // 2. Create a new image with background color
+    let mut background = ImageBuffer::from_pixel(
+        params.width,
+        params.height,
+        Rgba(params.background),
+    );
+
+    // 3. Overlay the resized image on the background (centered)
+    let (w, h) = resized.dimensions();
+    let x = (params.width.saturating_sub(w)) / 2;
+    let y = (params.height.saturating_sub(h)) / 2;
+
+    image::imageops::overlay(&mut background, &resized, x as i64, y as i64);
+
+    DynamicImage::ImageRgba8(background)
+}
+
 /// Rotate the image by the given degrees.
 pub fn rotate(image: DynamicImage, params: &RotateParams) -> DynamicImage {
     match params.degrees {
@@ -308,33 +338,20 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     };
 
     // Find best crop position
-    let mut max_energy = 0u64;
     let mut best_x = 0;
     let mut best_y = 0;
 
-    // Search step size to reduce iterations?
-    // For exact best, step=1. For performance, maybe step=8 or 16?
-    // Let's use step=1 for correctness first, optimizing later if needed.
-    // Actually, step=10 is common optimization and good enough.
-    // Let's use step = 10% of crop dimension or 10 pixels?
-    // Let's stick to step=1 for now, but maybe optimize if needed.
-    // Iterating 4000x3000 image is 12M iterations. Too slow.
-    // We should stride.
-
+    // Search step size to reduce iterations
     let step_x = (crop_w / 20).max(1);
     let step_y = (crop_h / 20).max(1);
 
-    // Ensure we cover boundaries
+    // Generate candidates for parallel processing
+    let mut candidates = Vec::new();
     let mut x = 0;
     while x <= img_w - crop_w {
         let mut y = 0;
         while y <= img_h - crop_h {
-            let energy = get_energy(x, y, crop_w, crop_h);
-            if energy > max_energy {
-                max_energy = energy;
-                best_x = x;
-                best_y = y;
-            }
+            candidates.push((x, y));
             if y == img_h - crop_h { break; }
             y = (y + step_y).min(img_h - crop_h);
         }
@@ -342,9 +359,22 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
         x = (x + step_x).min(img_w - crop_w);
     }
 
-    // Refine search around best_x, best_y with step=1?
-    // This is a "coarse-to-fine" search.
-    // Let's implement refinement.
+    // Find best candidate using parallel iterator
+    let best_candidate = candidates.par_iter()
+        .map(|&(x, y)| {
+            (x, y, get_energy(x, y, crop_w, crop_h))
+        })
+        .max_by_key(|&(_, _, energy)| energy);
+
+    let mut max_energy = 0;
+
+    if let Some((bx, by, energy)) = best_candidate {
+        best_x = bx;
+        best_y = by;
+        max_energy = energy;
+    }
+
+    // Refine search around best_x, best_y with step=1
     let range_x = step_x;
     let range_y = step_y;
 
@@ -385,7 +415,7 @@ pub fn thumbnail(image: DynamicImage, params: &ThumbnailParams) -> DynamicImage 
 mod tests {
     use super::*;
     use crate::image::params::{
-        CropParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams, ThumbnailParams,
+        CropParams, EmbedParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams, ThumbnailParams,
         ZoomParams,
     };
     use image::{DynamicImage, ImageBuffer, Rgba};
@@ -532,5 +562,27 @@ mod tests {
         };
         let thumb = thumbnail(img, &params);
         assert_eq!(thumb.dimensions(), (20, 20));
+    }
+
+    #[test]
+    fn test_embed() {
+        let img = create_test_image(100, 50); // 2:1
+        let params = EmbedParams {
+            width: 100,
+            height: 100,
+            background: [0, 0, 0, 0],
+        };
+        let embedded = embed(img, &params);
+        // Should be 100x100
+        assert_eq!(embedded.dimensions(), (100, 100));
+        // Image should be centered.
+        // Fit result: 100x50.
+        // Y offset: (100-50)/2 = 25.
+        // Pixel at 50, 10 should be background (0).
+        let p_bg = embedded.get_pixel(50, 10);
+        assert_eq!(p_bg, Rgba([0, 0, 0, 0]));
+        // Pixel at 50, 50 should be image (Red).
+        let p_img = embedded.get_pixel(50, 50);
+        assert_eq!(p_img, Rgba([255, 0, 0, 255]));
     }
 }

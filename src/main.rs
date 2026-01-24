@@ -29,6 +29,10 @@ use tokio::sync::Semaphore;
 
 use axum_server::Server;
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging

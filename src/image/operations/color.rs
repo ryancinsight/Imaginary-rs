@@ -4,6 +4,7 @@
 
 use crate::image::params::{BlurParams, GammaParams};
 use image::DynamicImage;
+use rayon::prelude::*;
 
 /// Convert an image to grayscale.
 pub fn grayscale(image: DynamicImage) -> DynamicImage {
@@ -46,12 +47,12 @@ pub fn gamma(image: DynamicImage, params: &GammaParams) -> DynamicImage {
 
     // Convert to RGBA8 to handle all formats uniformly and enable in-place modification
     let mut rgba = image.into_rgba8();
-    for pixel in rgba.pixels_mut() {
+    rgba.par_chunks_mut(4).for_each(|pixel| {
         pixel[0] = lut[pixel[0] as usize];
         pixel[1] = lut[pixel[1] as usize];
         pixel[2] = lut[pixel[2] as usize];
         // Alpha channel is preserved
-    }
+    });
     DynamicImage::ImageRgba8(rgba)
 }
 
