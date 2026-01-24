@@ -120,6 +120,10 @@ harness = false
 name = "system_monitor"
 harness = false
 
+[[bench]]
+name = "disk_monitor"
+harness = false
+
 [features]
 default = ["jpeg", "png", "webp", "avif"]
 jpeg = []

@@ -50,7 +50,9 @@ pub async fn readiness_check() -> impl IntoResponse {
 
     // Perform basic system checks
     let memory_check = check_memory_usage();
-    let disk_check = check_disk_space();
+    let disk_check = tokio::task::spawn_blocking(check_disk_space)
+        .await
+        .unwrap_or(false);
 
     let is_ready = memory_check && disk_check;
     let status_code = if is_ready {
