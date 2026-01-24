@@ -60,3 +60,22 @@ fn test_image_info_serialization() {
     assert_eq!(archived.width, info.width);
     assert_eq!(archived.format, info.format);
 }
+
+#[test]
+fn test_storage_config_serialization() {
+    use imaginary::storage::StorageConfig;
+
+    let config = StorageConfig {
+        temp_dir: "/tmp/imaginary".to_string(),
+        max_cache_size: 1024,
+    };
+
+    // Serialize
+    let bytes = rkyv::to_bytes::<_, 256>(&config).expect("failed to serialize config");
+
+    // Deserialize
+    let deserialized: StorageConfig = rkyv::from_bytes(&bytes).expect("failed to deserialize config");
+
+    assert_eq!(config.temp_dir, deserialized.temp_dir);
+    assert_eq!(config.max_cache_size, deserialized.max_cache_size);
+}

@@ -32,6 +32,7 @@ use axum::{
     routing::{get, post},
     BoxError, Json, Router, ServiceExt,
 };
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use serde_json::json;
 use std::net::SocketAddr;
@@ -52,7 +53,9 @@ use tracing::{info, Level};
 
 pub mod middleware;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct ServerConfig {
     #[serde(default = "default_port")]
     #[allow(dead_code)]

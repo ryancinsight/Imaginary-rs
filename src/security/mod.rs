@@ -2,6 +2,7 @@ use anyhow::Result;
 use hmac::{Hmac, Mac};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::env;
@@ -13,7 +14,9 @@ use std::process::Command;
 type HmacSha256 = Hmac<Sha256>;
 
 /// Represents a secret API key, ensuring it's handled with care.
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct ApiKey(String);
 
 impl fmt::Debug for ApiKey {
@@ -48,7 +51,9 @@ impl From<String> for ApiKey {
 }
 
 /// Represents a secret API salt, ensuring it's handled with care.
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct ApiSalt(String);
 
 impl fmt::Debug for ApiSalt {
@@ -82,7 +87,9 @@ impl From<String> for ApiSalt {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct SecurityConfig {
     #[serde(default = "default_key")]
     key: Option<ApiKey>,

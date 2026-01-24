@@ -4,13 +4,16 @@ use crate::server::ServerConfig;
 use crate::storage::StorageConfig;
 use anyhow::Result;
 use clap::ArgMatches;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 use toml::Value;
 pub mod cli;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,

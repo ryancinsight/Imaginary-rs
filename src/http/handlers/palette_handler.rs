@@ -17,7 +17,9 @@ use crate::{
     image::operations::palette::extract_palette,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct PaletteQuery {
     url: Option<String>,
     #[serde(default = "default_max_colors")]

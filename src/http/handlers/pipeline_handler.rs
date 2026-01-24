@@ -20,6 +20,7 @@ use axum::{
 use image::ImageFormat;
 use serde::Deserialize;
 use serde_json::{from_str, from_value};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
     config::Config, // Assuming Config is at crate::config
@@ -32,7 +33,9 @@ use crate::{
     },
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct PipelineQuery {
     url: Option<String>,
     operations: String,
