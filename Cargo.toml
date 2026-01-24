@@ -96,6 +96,8 @@ num_cpus = "1.16"
 # System monitoring
 sysinfo = "0.32"
 fast_image_resize = { version = "5.1.1", features = ["image"] }
+rkyv = { version = "0.7", features = ["std", "validation"] }
+bytecheck = "0.6"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
