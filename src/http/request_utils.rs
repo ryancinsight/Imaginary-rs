@@ -94,8 +94,16 @@ pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Byte
         )));
     }
 
+    let max_size = config.server.max_body_size.min(MAX_IMAGE_SIZE);
+    fetch_bytes_with_limit(url_str, max_size).await
+}
+
+pub(crate) async fn fetch_bytes_with_limit(
+    url_str: &str,
+    max_size: usize,
+) -> Result<Bytes, AppError> {
     // Make the HTTP request using the reusable client
-    let response = HTTP_CLIENT
+    let mut response = HTTP_CLIENT
         .get(url_str)
         .send()
         .await
@@ -110,8 +118,7 @@ pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Byte
 
     // Check content length
     let content_length = response.content_length().unwrap_or(0);
-    let max_size = config.server.max_body_size.min(MAX_IMAGE_SIZE) as u64;
-    if content_length > max_size {
+    if content_length > max_size as u64 {
         return Err(AppError::PayloadTooLarge(format!(
             "Image size {} exceeds limit of {} bytes",
             content_length, max_size
@@ -119,20 +126,22 @@ pub async fn fetch_image_from_url(url_str: &str, config: &Config) -> Result<Byte
     }
 
     // Read response body with size limit
-    let bytes = response
-        .bytes()
+    let mut bytes = Vec::with_capacity(content_length as usize);
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|e| AppError::BadRequest(format!("Failed to read image data: {}", e)))?;
-
-    if bytes.len() > config.server.max_body_size.min(MAX_IMAGE_SIZE) {
-        return Err(AppError::PayloadTooLarge(format!(
-            "Image size {} exceeds limit of {} bytes",
-            bytes.len(),
-            config.server.max_body_size.min(MAX_IMAGE_SIZE)
-        )));
+        .map_err(|e| AppError::BadRequest(format!("Failed to read image data: {}", e)))?
+    {
+        if bytes.len() + chunk.len() > max_size {
+            return Err(AppError::PayloadTooLarge(format!(
+                "Image size exceeds limit of {} bytes",
+                max_size
+            )));
+        }
+        bytes.extend_from_slice(&chunk);
     }
 
-    Ok(bytes)
+    Ok(Bytes::from(bytes))
 }
 
 #[cfg(test)]
@@ -204,5 +213,73 @@ mod tests {
         assert!(is_safe_ip(IpAddr::V6(Ipv6Addr::new(
             0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888
         ))));
+    }
+
+    #[tokio::test]
+    async fn test_unbounded_read() {
+        use axum::{routing::get, Router};
+        use axum::body::Body;
+        use futures_util::StreamExt;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        use tokio::net::TcpListener;
+        use tokio::task;
+
+        // A counter to track bytes sent by the server body stream
+        let sent_bytes = Arc::new(AtomicUsize::new(0));
+        let sent_bytes_clone = sent_bytes.clone();
+
+        // Create a router that serves a large body (100MB)
+        let app = Router::new().route("/large", get(move || {
+            let sent_bytes = sent_bytes_clone.clone();
+            async move {
+                // We want to stream data so we can detect early termination
+                // Create a stream of 100MB in 1KB chunks
+                let total_size = 100 * 1024 * 1024;
+                let chunk_size = 1024;
+                let chunks = total_size / chunk_size;
+
+                let stream = futures_util::stream::iter(0..chunks).map(move |_| {
+                    sent_bytes.fetch_add(chunk_size, Ordering::SeqCst);
+                    Ok::<_, std::io::Error>(vec![0u8; chunk_size])
+                });
+
+                Body::from_stream(stream)
+            }
+        }));
+
+        // Start server
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        task::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        // Limit set to 5MB
+        let max_size = 5 * 1024 * 1024;
+        let url = format!("http://{}/large", addr);
+
+        // Call the function
+        let result = fetch_bytes_with_limit(&url, max_size).await;
+
+        let bytes_sent = sent_bytes.load(Ordering::SeqCst);
+
+        match result {
+            Ok(_) => panic!("Should have failed with PayloadTooLarge"),
+            Err(AppError::PayloadTooLarge(_)) => {
+                // expected
+            }
+            Err(e) => panic!("Wrong error type: {}", e),
+        }
+
+        // Verify we didn't download everything
+        // 100MB is the total size. We expect to stop much earlier.
+        // Due to buffering, we might have sent more than the limit (5MB), but should be far less than 100MB.
+        assert!(
+            bytes_sent < 50 * 1024 * 1024,
+            "Server sent too much data: {} bytes. Limit was 5MB.",
+            bytes_sent
+        );
     }
 }

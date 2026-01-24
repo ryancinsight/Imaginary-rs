@@ -103,6 +103,7 @@ tokio-test = "0.4"
 tempfile = "3.0"
 criterion = { version = "0.5", features = ["html_reports"] }
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
+futures-util = "0.3.31"
 
 [[bench]]
 name = "image_operations"
