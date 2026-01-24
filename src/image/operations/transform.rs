@@ -9,6 +9,7 @@ use crate::image::params::{
 use fast_image_resize::images::Image;
 use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use imageproc::gradients::sobel_gradients;
 use std::num::NonZeroU32;
 
 impl From<&ResizeFilter> for ResizeAlg {
@@ -37,7 +38,7 @@ impl From<&ResizeFilter> for FilterType {
 }
 
 /// Helper function to perform resizing using fast_image_resize.
-/// This converts the image to RGBA8, resizes it, and returns a new DynamicImage.
+/// This attempts to preserve the pixel format to avoid unnecessary conversions.
 fn resize_fast(
     image: DynamicImage,
     width: u32,
@@ -46,36 +47,107 @@ fn resize_fast(
 ) -> DynamicImage {
     let width_nz = NonZeroU32::new(width).unwrap_or(NonZeroU32::new(1).unwrap());
     let height_nz = NonZeroU32::new(height).unwrap_or(NonZeroU32::new(1).unwrap());
+    let resize_alg = ResizeAlg::from(filter);
 
-    // Convert to RGBA8 which is U8x4. This ensures compatibility.
-    // Note: This involves a clone/conversion if not already RGBA8.
-    let src_image = image.into_rgba8();
-    // Default to 1x1 if source image has 0 dimension (which technically shouldn't happen for loaded images but safe to handle)
-    let src_width = NonZeroU32::new(src_image.width()).unwrap_or(NonZeroU32::new(1).unwrap());
-    let src_height = NonZeroU32::new(src_image.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+    match image {
+        DynamicImage::ImageRgb8(img) => {
+            let src_width = NonZeroU32::new(img.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src_height = NonZeroU32::new(img.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src = Image::from_vec_u8(
+                src_width.get(),
+                src_height.get(),
+                img.into_raw(),
+                PixelType::U8x3,
+            )
+            .expect("Failed to create source image");
 
-    let src = Image::from_vec_u8(
-        src_width.get(),
-        src_height.get(),
-        src_image.into_raw(),
-        PixelType::U8x4,
-    )
-    .expect("Failed to create source image for resizing");
+            let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x3);
+            let mut resizer = Resizer::new();
+            resizer
+                .resize(&src, &mut dst, &ResizeOptions::new().resize_alg(resize_alg))
+                .expect("Resize failed");
 
-    let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x4);
+            DynamicImage::ImageRgb8(
+                image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst.into_vec())
+                    .expect("Failed to create buffer"),
+            )
+        }
+        DynamicImage::ImageLuma8(img) => {
+            let src_width = NonZeroU32::new(img.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src_height = NonZeroU32::new(img.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src = Image::from_vec_u8(
+                src_width.get(),
+                src_height.get(),
+                img.into_raw(),
+                PixelType::U8,
+            )
+            .expect("Failed to create source image");
 
-    let mut resizer = Resizer::new();
-    let resize_opts = ResizeOptions::new().resize_alg(ResizeAlg::from(filter));
+            let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8);
+            let mut resizer = Resizer::new();
+            resizer
+                .resize(&src, &mut dst, &ResizeOptions::new().resize_alg(resize_alg))
+                .expect("Resize failed");
 
-    resizer
-        .resize(&src, &mut dst, &resize_opts)
-        .expect("Resize failed");
+            DynamicImage::ImageLuma8(
+                image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst.into_vec())
+                    .expect("Failed to create buffer"),
+            )
+        }
+        DynamicImage::ImageLumaA8(img) => {
+            let src_width = NonZeroU32::new(img.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src_height = NonZeroU32::new(img.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src = Image::from_vec_u8(
+                src_width.get(),
+                src_height.get(),
+                img.into_raw(),
+                PixelType::U8x2,
+            )
+            .expect("Failed to create source image");
 
-    let dst_raw = dst.into_vec();
-    DynamicImage::ImageRgba8(
-        image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst_raw)
-            .expect("Failed to create buffer from resized data"),
-    )
+            let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x2);
+            let mut resizer = Resizer::new();
+            resizer
+                .resize(&src, &mut dst, &ResizeOptions::new().resize_alg(resize_alg))
+                .expect("Resize failed");
+
+            DynamicImage::ImageLumaA8(
+                image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst.into_vec())
+                    .expect("Failed to create buffer"),
+            )
+        }
+        _ => {
+            // Fallback to RGBA8
+            let src_image = image.into_rgba8();
+            let src_width =
+                NonZeroU32::new(src_image.width()).unwrap_or(NonZeroU32::new(1).unwrap());
+            let src_height =
+                NonZeroU32::new(src_image.height()).unwrap_or(NonZeroU32::new(1).unwrap());
+
+            let src = Image::from_vec_u8(
+                src_width.get(),
+                src_height.get(),
+                src_image.into_raw(),
+                PixelType::U8x4,
+            )
+            .expect("Failed to create source image for resizing");
+
+            let mut dst = Image::new(width_nz.get(), height_nz.get(), PixelType::U8x4);
+
+            let mut resizer = Resizer::new();
+            let resize_opts = ResizeOptions::new().resize_alg(resize_alg);
+
+            resizer
+                .resize(&src, &mut dst, &resize_opts)
+                .expect("Resize failed");
+
+            let dst_raw = dst.into_vec();
+            DynamicImage::ImageRgba8(
+                image::ImageBuffer::from_raw(width_nz.get(), height_nz.get(), dst_raw)
+                    .expect("Failed to create buffer from resized data"),
+            )
+        }
+    }
 }
 
 /// Resize the image to the given dimensions using fast_image_resize.
@@ -182,14 +254,117 @@ pub fn zoom(image: DynamicImage, params: &ZoomParams) -> DynamicImage {
 }
 
 /// Perform a smart crop on the image using the given parameters.
+/// It uses edge detection (Sobel) to find the region with the highest entropy/energy.
 pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage {
     params.validate().expect("Invalid smart crop params");
     let (img_w, img_h) = image.dimensions();
     let crop_w = params.width.min(img_w);
     let crop_h = params.height.min(img_h);
-    let x = (img_w.saturating_sub(crop_w)) / 2;
-    let y = (img_h.saturating_sub(crop_h)) / 2;
-    image.crop_imm(x, y, crop_w, crop_h)
+
+    if crop_w == img_w && crop_h == img_h {
+        return image;
+    }
+
+    // Convert to grayscale for edge detection
+    let gray = image.to_luma8();
+
+    // Calculate Sobel gradients (energy map)
+    let gradients = sobel_gradients(&gray);
+    // gradients is ImageBuffer<Luma<u16>, Vec<u16>>
+
+    // Create integral image (Summed Area Table) for O(1) window sum
+    // Use u64 to prevent overflow. Dimensions + 1 for boundary handling.
+    let w_plus_1 = (img_w + 1) as usize;
+    let h_plus_1 = (img_h + 1) as usize;
+    let mut integral = vec![0u64; w_plus_1 * h_plus_1];
+
+    for y in 0..img_h {
+        let mut row_sum = 0u64;
+        for x in 0..img_w {
+            let val = gradients.get_pixel(x, y)[0] as u64;
+            row_sum += val;
+
+            let i = (y + 1) as usize * w_plus_1 + (x + 1) as usize;
+            let i_prev = y as usize * w_plus_1 + (x + 1) as usize;
+
+            integral[i] = integral[i_prev] + row_sum;
+        }
+    }
+
+    // Helper to get sum of rect (x, y, w, h)
+    let get_energy = |x: u32, y: u32, w: u32, h: u32| -> u64 {
+        let x0 = x as usize;
+        let y0 = y as usize;
+        let x1 = (x + w) as usize;
+        let y1 = (y + h) as usize;
+
+        // I(D) + I(A) - I(B) - I(C)
+        let i_d = integral[y1 * w_plus_1 + x1];
+        let i_a = integral[y0 * w_plus_1 + x0];
+        let i_b = integral[y0 * w_plus_1 + x1];
+        let i_c = integral[y1 * w_plus_1 + x0];
+
+        i_d + i_a - i_b - i_c
+    };
+
+    // Find best crop position
+    let mut max_energy = 0u64;
+    let mut best_x = 0;
+    let mut best_y = 0;
+
+    // Search step size to reduce iterations?
+    // For exact best, step=1. For performance, maybe step=8 or 16?
+    // Let's use step=1 for correctness first, optimizing later if needed.
+    // Actually, step=10 is common optimization and good enough.
+    // Let's use step = 10% of crop dimension or 10 pixels?
+    // Let's stick to step=1 for now, but maybe optimize if needed.
+    // Iterating 4000x3000 image is 12M iterations. Too slow.
+    // We should stride.
+
+    let step_x = (crop_w / 20).max(1);
+    let step_y = (crop_h / 20).max(1);
+
+    // Ensure we cover boundaries
+    let mut x = 0;
+    while x <= img_w - crop_w {
+        let mut y = 0;
+        while y <= img_h - crop_h {
+            let energy = get_energy(x, y, crop_w, crop_h);
+            if energy > max_energy {
+                max_energy = energy;
+                best_x = x;
+                best_y = y;
+            }
+            if y == img_h - crop_h { break; }
+            y = (y + step_y).min(img_h - crop_h);
+        }
+        if x == img_w - crop_w { break; }
+        x = (x + step_x).min(img_w - crop_w);
+    }
+
+    // Refine search around best_x, best_y with step=1?
+    // This is a "coarse-to-fine" search.
+    // Let's implement refinement.
+    let range_x = step_x;
+    let range_y = step_y;
+
+    let start_x = best_x.saturating_sub(range_x);
+    let end_x = (best_x + range_x).min(img_w - crop_w);
+    let start_y = best_y.saturating_sub(range_y);
+    let end_y = (best_y + range_y).min(img_h - crop_h);
+
+    for x in start_x..=end_x {
+        for y in start_y..=end_y {
+             let energy = get_energy(x, y, crop_w, crop_h);
+             if energy > max_energy {
+                 max_energy = energy;
+                 best_x = x;
+                 best_y = y;
+             }
+        }
+    }
+
+    image.crop_imm(best_x, best_y, crop_w, crop_h)
 }
 
 /// Create a thumbnail of the image with the given parameters.

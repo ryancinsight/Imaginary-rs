@@ -5,8 +5,8 @@
 use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosition};
 use image::{DynamicImage, Rgba};
 use image::{GenericImage, GenericImageView, RgbaImage};
-use imageproc::drawing::draw_text_mut;
-use rusttype::{point, Font, Scale};
+use imageproc::drawing::{draw_text_mut, text_size};
+use ab_glyph::{FontRef, PxScale, Font};
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -45,9 +45,9 @@ pub fn watermark(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/fonts/DejaVuSans.ttf"
     ));
-    let font = match Font::try_from_bytes(font_data) {
-        Some(f) => f,
-        None => {
+    let font = match FontRef::try_from_slice(font_data) {
+        Ok(f) => f,
+        Err(_) => {
             return Err((
                 DynamicImage::ImageRgba8(rgba_image),
                 "Failed to load font".to_string(),
@@ -55,7 +55,7 @@ pub fn watermark(
         }
     };
 
-    let scale = Scale::uniform(params.font_size as f32);
+    let scale = PxScale::from(params.font_size as f32);
     let color = Rgba([
         params.color[0],
         params.color[1],
@@ -63,35 +63,28 @@ pub fn watermark(
         (params.opacity * 255.0) as u8,
     ]);
 
-    // --- NEW: Measure text width/height ---
-    let v_metrics = font.v_metrics(scale);
-    let glyphs: Vec<_> = font.layout(&params.text, scale, point(0.0, 0.0)).collect();
-    let glyphs_width = glyphs
-        .iter()
-        .filter_map(|g| g.pixel_bounding_box().map(|bb| bb.max.x as f32))
-        .last()
-        .unwrap_or(0.0)
-        .ceil() as u32;
-    let glyphs_height = (v_metrics.ascent - v_metrics.descent).ceil() as u32;
+    // Measure text width/height
+    let (glyphs_width, glyphs_height) = text_size(scale, &font, &params.text);
+
     let margin = 10u32;
     let (width, height) = rgba_image.dimensions();
 
     let (x, y) = match (params.x, params.y) {
         (Some(x), Some(y)) => (x, y),
         _ => match params.position {
-            WatermarkPosition::TopLeft => (margin, margin + glyphs_height),
+            WatermarkPosition::TopLeft => (margin, margin),
             WatermarkPosition::TopRight => (
                 width.saturating_sub(glyphs_width + margin),
-                margin + glyphs_height,
+                margin,
             ),
-            WatermarkPosition::BottomLeft => (margin, height.saturating_sub(margin)),
+            WatermarkPosition::BottomLeft => (margin, height.saturating_sub(glyphs_height + margin)),
             WatermarkPosition::BottomRight => (
                 width.saturating_sub(glyphs_width + margin),
-                height.saturating_sub(margin),
+                height.saturating_sub(glyphs_height + margin),
             ),
             WatermarkPosition::Center => (
-                width.saturating_sub(glyphs_width) / 2,
-                height.saturating_sub(glyphs_height) / 2 + glyphs_height,
+                (width.saturating_sub(glyphs_width)) / 2,
+                (height.saturating_sub(glyphs_height)) / 2,
             ),
         },
     };

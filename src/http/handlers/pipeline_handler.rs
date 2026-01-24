@@ -200,6 +200,7 @@ fn determine_output_format(
                     "jpeg" | "jpg" => return ImageFormat::Jpeg,
                     "gif" => return ImageFormat::Gif,
                     "webp" => return ImageFormat::WebP,
+                    "avif" => return ImageFormat::Avif,
                     "bmp" => return ImageFormat::Bmp,
                     "tiff" | "tif" => return ImageFormat::Tiff,
                     _ => {

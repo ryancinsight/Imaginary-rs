@@ -1,6 +1,6 @@
 use crate::http::errors;
 use crate::image::params::Validate;
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use std::fs::File;
 use std::io::Cursor;
