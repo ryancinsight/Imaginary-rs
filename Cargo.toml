@@ -45,9 +45,9 @@ tower-http = { version = "0.5.2", features = [
 tower = { version = "0.4", features = ["util", "timeout"] }
 
 # Image processing
-image = "0.24.9"
-imageproc = "0.23.0"  # For advanced image processing like text rendering
-rusttype = "0.9.3"    # Font rendering for watermarks
+image = { version = "0.25", features = ["avif", "jpeg", "png", "webp"] }
+imageproc = "0.25.0"  # For advanced image processing like text rendering
+ab_glyph = "0.2"
 
 # Runtime and async
 tokio = { version = "1", features = ["full"] }
@@ -116,10 +116,11 @@ name = "system_monitor"
 harness = false
 
 [features]
-default = ["jpeg", "png", "webp"]
+default = ["jpeg", "png", "webp", "avif"]
 jpeg = []
 png = []
 webp = []
+avif = []
 heif = []
 gif = []
 simd = []  # Optional SIMD optimizations
