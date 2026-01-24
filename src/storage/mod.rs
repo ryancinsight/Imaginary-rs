@@ -3,6 +3,7 @@ use cached::proc_macro::cached;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
@@ -38,14 +39,68 @@ pub fn init_storage_dirs(temp_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-// Cache for storing operation results
+pub fn calculate_hash_sync(
+    image_path: &Path,
+    operation: &str,
+    params: &str,
+) -> Result<String> {
+    let mut hasher = Sha256::new();
+    let mut file = fs::File::open(image_path)?;
+    let mut buffer = [0; 8192]; // 8KB buffer
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    hasher.update(operation.as_bytes());
+    hasher.update(params.as_bytes());
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+// Cache for storing operation hashes (avoids re-reading file to compute hash)
 #[cached(
     size = 100,
     key = "String",
-    convert = r#"{ format!("{}:{}:{}", _image_path.to_string_lossy(), _operation, _params) }"#
+    convert = r#"{ format!("{}:{}:{}:{}:{}", _path_str, _mtime, _size, _operation, _params) }"#
 )]
-pub fn get_cached_result(_image_path: PathBuf, _operation: &str, _params: &str) -> Option<PathBuf> {
-    None // Initial cache miss
+pub fn get_hash_cached(
+    _path_str: String,
+    _mtime: u64,
+    _size: u64,
+    _operation: &str,
+    _params: &str
+) -> Option<String> {
+    // We recreate path from string to open it.
+    let path = PathBuf::from(&_path_str);
+    calculate_hash_sync(&path, _operation, _params).ok()
+}
+
+pub fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> Option<PathBuf> {
+    // Get metadata to ensure cache validity
+    let metadata = fs::metadata(&image_path).ok()?;
+    // If we can't get mtime (e.g. some filesystems), we default to 0? Or just fail?
+    // Using 0 might risk stale cache if mtime is broken. But usually it works.
+    let mtime = metadata.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let size = metadata.len();
+
+    let path_str = image_path.to_string_lossy().to_string();
+
+    let hash = get_hash_cached(path_str, mtime, size, operation, params)?;
+
+    let temp_dir = default_temp_dir();
+    let cache_path = temp_dir.join(format!("{}.img", hash));
+
+    if cache_path.exists() {
+        Some(cache_path)
+    } else {
+        None
+    }
 }
 
 // Cache for storing file metadata hashes
@@ -94,9 +149,14 @@ pub async fn generate_operation_hash(
 
     // Hash the image content
     let mut file = tokio_fs::File::open(image_path).await?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).await?;
-    hasher.update(&buffer);
+    let mut buffer = [0; 8192];
+    loop {
+        let count = file.read(&mut buffer).await?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
 
     // Hash the operation and parameters
     hasher.update(operation.as_bytes());
@@ -105,11 +165,23 @@ pub async fn generate_operation_hash(
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-async fn cache_result(image_path: &Path, operation: &str, params: &str, _result_path: &Path) {
+pub async fn cache_result(image_path: &Path, operation: &str, params: &str, result_path: &Path) {
     if let Ok(hash) = generate_operation_hash(image_path, operation, params).await {
-        let cached = get_cached_result(image_path.to_path_buf(), operation, params);
-        if cached.is_none() {
-            info!("Cached result for operation: {}", hash);
+        let temp_dir = default_temp_dir();
+        if !temp_dir.exists() {
+            let _ = fs::create_dir_all(&temp_dir);
+        }
+        let cache_path = temp_dir.join(format!("{}.img", hash));
+
+        // Copy result to cache
+        // We use tokio::fs::copy for async context
+        match tokio_fs::copy(result_path, &cache_path).await {
+            Ok(_) => {
+                info!("Cached result for operation: {} at {:?}", hash, cache_path);
+            }
+            Err(e) => {
+                tracing::error!("Failed to cache result: {}", e);
+            }
         }
     }
 }
