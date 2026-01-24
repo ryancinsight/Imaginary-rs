@@ -12,13 +12,14 @@
 pub mod color;
 pub mod format;
 pub mod overlay;
+pub mod palette;
 pub mod transform;
 pub mod watermark;
 
 // Re-export most common operations for ergonomic use
 pub use color::{adjust_brightness, adjust_contrast, blur, gamma, grayscale, negate, sharpen};
 pub use transform::{
-    crop, enlarge, extract, fill, fit, flip_horizontal, flip_vertical, resize, rotate, smart_crop,
+    crop, embed, enlarge, extract, fill, fit, flip_horizontal, flip_vertical, resize, rotate, smart_crop,
     thumbnail, zoom,
 };
 // pub use watermark::watermark; // Not re-exported at top level unless part of public API

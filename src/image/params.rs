@@ -162,6 +162,34 @@ impl Validate for WatermarkParams {
     }
 }
 
+/// Parameters for embedding an image in a box (resize fit + pad).
+/// - width, height: box size
+/// - background: optional RGBA color (default white)
+#[derive(Debug, Deserialize, Default)]
+pub struct EmbedParams {
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+    #[serde(default = "default_background_color")]
+    pub background: [u8; 4],
+}
+
+fn default_background_color() -> [u8; 4] {
+    [255, 255, 255, 255]
+}
+
+impl Validate for EmbedParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+             return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Position for watermark placement.
 #[derive(Debug, Deserialize, Default)]
 pub enum WatermarkPosition {

@@ -82,6 +82,17 @@ fn execute_single_operation(
                 Err(e) => Err((image, e))
             }
         }
+        SupportedOperation::Embed => {
+            match parse_params::<params::EmbedParams>(&spec.params, "Embed") {
+                Ok(params) => {
+                    if let Err(e) = params.validate() {
+                        return Err(map_valid_err(image, "Embed", e));
+                    }
+                    Ok(operations::embed(image, &params))
+                },
+                Err(e) => Err((image, e))
+            }
+        }
         SupportedOperation::Crop => {
             match parse_params::<params::CropParams>(&spec.params, "Crop") {
                 Ok(params) => {

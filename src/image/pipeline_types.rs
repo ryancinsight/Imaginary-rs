@@ -34,6 +34,7 @@ pub enum SupportedOperation {
     Resize,
     Fit,
     Fill,
+    Embed,
     Enlarge,
     Extract,
     Rotate,

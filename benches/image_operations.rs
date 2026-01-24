@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Benchmark
 use imaginary::image::operations::*;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
-use imaginary::image::params::{ResizeParams, CropParams, RotateParams, BlurParams, FormatConversionParams};
+use imaginary::image::params::{ResizeParams, CropParams, RotateParams, BlurParams, FormatConversionParams, GammaParams, SmartCropParams};
 use image::{DynamicImage, ImageBuffer, RgbImage};
 use serde_json::json;
 
@@ -148,6 +148,16 @@ fn bench_color_operations(c: &mut Criterion) {
             black_box(adjust_contrast(
                 black_box(img.clone()),
                 black_box(1.2),
+            ))
+        })
+    });
+
+    group.bench_function("gamma", |b| {
+        let params = GammaParams { value: 2.2 };
+        b.iter(|| {
+            black_box(gamma(
+                black_box(img.clone()),
+                black_box(&params),
             ))
         })
     });
