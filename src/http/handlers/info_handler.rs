@@ -17,7 +17,9 @@ use crate::{
     },
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct InfoQuery {
     url: Option<String>,
 }

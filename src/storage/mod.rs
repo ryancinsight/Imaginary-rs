@@ -1,5 +1,6 @@
 use anyhow::Result;
 use cached::proc_macro::cached;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -9,10 +10,12 @@ use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
 use tracing::info;
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
 pub struct StorageConfig {
     #[serde(default = "default_temp_dir")]
-    pub temp_dir: PathBuf,
+    pub temp_dir: String,
     #[serde(default = "default_max_cache_size")]
     #[allow(dead_code)]
     pub max_cache_size: usize,
@@ -93,7 +96,7 @@ pub fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> 
 
     let hash = get_hash_cached(path_str, mtime, size, operation, params)?;
 
-    let temp_dir = default_temp_dir();
+    let temp_dir = default_temp_dir_path();
     let cache_path = temp_dir.join(format!("{}.img", hash));
 
     if cache_path.exists() {
@@ -167,7 +170,7 @@ pub async fn generate_operation_hash(
 
 pub async fn cache_result(image_path: &Path, operation: &str, params: &str, result_path: &Path) {
     if let Ok(hash) = generate_operation_hash(image_path, operation, params).await {
-        let temp_dir = default_temp_dir();
+        let temp_dir = default_temp_dir_path();
         if !temp_dir.exists() {
             let _ = fs::create_dir_all(&temp_dir);
         }
@@ -208,7 +211,11 @@ pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Re
     Ok(())
 }
 
-fn default_temp_dir() -> PathBuf {
+fn default_temp_dir() -> String {
+    "temp".to_string()
+}
+
+fn default_temp_dir_path() -> PathBuf {
     PathBuf::from("temp")
 }
 
