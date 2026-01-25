@@ -5,10 +5,11 @@ use image::GenericImageView;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::PipelineOperationSpec;
 use serde_json::json;
+use serde::Deserialize;
 
 // Helper to convert JSON params to specific operation spec via deserialization
-fn create_op_spec(json: serde_json::Value) -> PipelineOperationSpec {
-    serde_json::from_value(json).expect("Failed to create PipelineOperationSpec from JSON")
+fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
+    PipelineOperationSpec::deserialize(json).expect("Failed to create PipelineOperationSpec from JSON")
 }
 
 #[test]
@@ -17,7 +18,7 @@ fn test_complete_pipeline_with_real_image() {
     let original_dimensions = image.dimensions();
 
     let operations = vec![
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": original_dimensions.0 / 2,
@@ -25,11 +26,11 @@ fn test_complete_pipeline_with_real_image() {
             },
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "grayscale",
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "watermark",
             "params": {
                 "text": "Test Watermark",
@@ -55,7 +56,7 @@ fn test_complete_pipeline_with_real_image() {
 fn test_format_conversion_pipeline() {
     let image = load_test_image("balloons.png");
 
-    let operations = vec![create_op_spec(json!({
+    let operations = vec![create_op_spec(&json!({
         "operation": "convert",
         "params": {
             "format": "jpeg",
@@ -75,7 +76,7 @@ fn test_complex_pipeline_with_error_handling() {
 
     let operations = vec![
         // This operation should fail but be ignored
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": 0,  // Invalid width
@@ -84,12 +85,12 @@ fn test_complex_pipeline_with_error_handling() {
             "ignoreFailure": true
         })),
         // This operation should succeed
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "grayscale",
             "ignoreFailure": false
         })),
         // This operation should succeed
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "blur",
             "params": {
                 "sigma": 1.0
@@ -110,7 +111,7 @@ fn test_pipeline_with_different_image_formats() {
     // Test with TIFF image
     let tiff_image = load_test_image("body1.tif");
     let operations = vec![
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": 100,
@@ -118,7 +119,7 @@ fn test_pipeline_with_different_image_formats() {
             },
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "convert",
             "params": {
                 "format": "png",
@@ -140,14 +141,14 @@ fn test_pipeline_with_rotation_and_blur() {
     let original_dimensions = image.dimensions();
 
     let operations = vec![
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "rotate",
             "params": {
                 "degrees": 90
             },
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "blur",
             "params": {
                 "sigma": 2.0
@@ -169,7 +170,7 @@ fn test_pipeline_with_rotation_and_blur() {
 #[test]
 fn test_resize_pipeline() {
     let image = create_test_image(100, 100);
-    let operations = vec![create_op_spec(json!({
+    let operations = vec![create_op_spec(&json!({
         "operation": "resize",
         "params": {
             "width": 50,
@@ -188,7 +189,7 @@ fn test_resize_pipeline() {
 #[test]
 fn test_blur_pipeline() {
     let image = create_test_image(100, 100);
-    let operations = vec![create_op_spec(json!({
+    let operations = vec![create_op_spec(&json!({
         "operation": "blur",
         "params": {
             "sigma": 1.0
@@ -206,7 +207,7 @@ fn test_complex_pipeline() {
     let original_dimensions = image.dimensions();
 
     let operations = vec![
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": original_dimensions.0 / 2,
@@ -214,14 +215,14 @@ fn test_complex_pipeline() {
             },
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "blur",
             "params": {
                 "sigma": 0.5
             },
             "ignoreFailure": false
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "rotate",
             "params": {
                 "degrees": 90.0
@@ -248,7 +249,7 @@ fn test_complex_pipeline() {
 fn test_pipeline_with_ignored_failures() {
     let image = create_test_image(100, 100);
     let operations = vec![
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": 0, // Invalid parameter (0 is invalid for width)
@@ -256,7 +257,7 @@ fn test_pipeline_with_ignored_failures() {
             },
             "ignoreFailure": true
         })),
-        create_op_spec(json!({
+        create_op_spec(&json!({
             "operation": "blur",
             "params": {
                 "sigma": 1.0
@@ -272,7 +273,7 @@ fn test_pipeline_with_ignored_failures() {
 #[test]
 fn test_pipeline_error_handling() {
     let image = create_test_image(100, 100);
-    let operations = vec![create_op_spec(json!({
+    let operations = vec![create_op_spec(&json!({
         "operation": "resize",
         "params": {
             "width": 0, // Invalid parameter

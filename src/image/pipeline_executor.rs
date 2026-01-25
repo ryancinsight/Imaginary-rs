@@ -189,6 +189,7 @@ mod tests {
     use crate::image::params;
     use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
     use serde_json::json;
+    use serde::Deserialize;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -200,20 +201,20 @@ mod tests {
 
     // Helper to convert JSON params to specific operation spec via deserialization
     // This allows keeping the test structure similar to before but going through the new PipelineOperationSpec deserialization
-    fn create_op_spec(json: serde_json::Value) -> PipelineOperationSpec {
-        serde_json::from_value(json).expect("Failed to create PipelineOperationSpec from JSON")
+    fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
+        PipelineOperationSpec::deserialize(json).expect("Failed to create PipelineOperationSpec from JSON")
     }
 
     #[test]
     fn test_successful_pipeline() {
         let image = create_test_image(100, 100);
         let operations = vec![
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "resize",
                 "params": { "width": 50, "height": 50 },
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "blur",
                 "params": { "sigma": 1.0, "minampl": 0.1 },
                 "ignoreFailure": false
@@ -237,7 +238,7 @@ mod tests {
     #[test]
     fn test_watermark_pipeline() {
         let image = create_test_image(100, 100);
-        let operations = vec![create_op_spec(json!({
+        let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
             "params": {
                 "text": "Test",
@@ -273,7 +274,7 @@ mod tests {
         // So we can still pass invalid params via JSON.
 
         let operations = vec![
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "resize",
                 "params": {
                     "width": 0, // Invalid parameter (width=0)
@@ -281,7 +282,7 @@ mod tests {
                 },
                 "ignoreFailure": true
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "blur",
                 "params": {
                     "sigma": 1.0,
@@ -303,7 +304,7 @@ mod tests {
     #[test]
     fn test_pipeline_error_handling() {
         let image = create_test_image(100, 100);
-        let operations = vec![create_op_spec(json!({
+        let operations = vec![create_op_spec(&json!({
             "operation": "resize",
             "params": {
                 "width": 0, // Invalid parameter
@@ -322,7 +323,7 @@ mod tests {
     #[test]
     fn test_watermark_custom_position_and_color() {
         let image = create_test_image(100, 100);
-        let operations = vec![create_op_spec(json!({
+        let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
             "params": {
                 "text": "Custom",
@@ -356,7 +357,7 @@ mod tests {
         // but 'text' has #[serde(default)] so it becomes empty string.
         // Then validate() checks if empty.
 
-        let operations = vec![create_op_spec(json!({
+        let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
             "params": {
                 "text": "", // Empty text
@@ -388,11 +389,11 @@ mod tests {
     fn test_pipeline_grayscale_watermark_convert() {
         let image = create_test_image(100, 100);
         let operations = vec![
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "grayscale",
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "watermark",
                 "params": {
                     "text": "GrayWM",
@@ -403,7 +404,7 @@ mod tests {
                 },
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "convert",
                 "params": {
                     "format": "jpeg",
@@ -430,7 +431,7 @@ mod tests {
     #[test]
     fn test_execute_single_operation_resize() {
         let image = create_test_image(100, 100);
-        let spec = create_op_spec(json!({
+        let spec = create_op_spec(&json!({
             "operation": "resize",
             "params": {"width": 50, "height": 75},
             "ignoreFailure": false
@@ -445,7 +446,7 @@ mod tests {
     #[test]
     fn test_execute_single_operation_invalid_resize() {
         let image = create_test_image(100, 100);
-        let spec = create_op_spec(json!({
+        let spec = create_op_spec(&json!({
             "operation": "resize",
             "params": {"width": 0, "height": 50},
             "ignoreFailure": false
@@ -460,7 +461,7 @@ mod tests {
     #[test]
     fn test_execute_single_operation_grayscale() {
         let image = create_test_image(100, 100);
-        let spec = create_op_spec(json!({
+        let spec = create_op_spec(&json!({
             "operation": "grayscale",
             "ignoreFailure": false
         }));
@@ -473,27 +474,27 @@ mod tests {
     fn test_complex_pipeline_multiple_operations() {
         let image = create_test_image(200, 200);
         let operations = vec![
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "resize",
                 "params": {"width": 150, "height": 150},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "crop",
                 "params": {"x": 25, "y": 25, "width": 100, "height": 100},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "rotate",
                 "params": {"degrees": 45},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "blur",
                 "params": {"sigma": 1.5},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "grayscale",
                 "ignoreFailure": false
             })),
@@ -507,22 +508,22 @@ mod tests {
     fn test_pipeline_new_operations() {
         let image = create_test_image(100, 50);
         let operations = vec![
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "fit",
                 "params": {"width": 50, "height": 50},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "fill",
                 "params": {"width": 25, "height": 25},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "gamma",
                 "params": {"value": 2.2},
                 "ignoreFailure": false
             })),
-            create_op_spec(json!({
+            create_op_spec(&json!({
                 "operation": "negate",
                 "ignoreFailure": false
             })),

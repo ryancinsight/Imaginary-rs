@@ -127,6 +127,10 @@ harness = false
 name = "disk_monitor"
 harness = false
 
+[[bench]]
+name = "param_parsing"
+harness = false
+
 [features]
 default = ["jpeg", "png", "webp", "avif"]
 jpeg = []
