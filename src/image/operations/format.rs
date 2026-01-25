@@ -99,4 +99,21 @@ mod tests {
         let rotated = autorotate(img);
         assert_eq!(rotated.dimensions(), (100, 100));
     }
+
+    #[test]
+    fn test_convert_format_invalid_format_returns_image() {
+        let img = create_test_image(100, 100);
+        let params = FormatConversionParams {
+            format: "invalid_fmt".to_string(),
+            quality: None,
+        };
+        let result = convert_format(img, &params);
+        assert!(result.is_err());
+        let (returned_img, err) = result.err().unwrap();
+        assert_eq!(returned_img.dimensions(), (100, 100));
+        match err {
+            AppError::UnsupportedMediaType(_) => (),
+            _ => panic!("Unexpected error type"),
+        }
+    }
 }
