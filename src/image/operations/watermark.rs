@@ -4,9 +4,9 @@
 
 use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosition};
 use image::{DynamicImage, Rgba};
-use image::{GenericImage, GenericImageView, RgbaImage};
+use image::RgbaImage;
 use imageproc::drawing::{draw_text_mut, text_size};
-use ab_glyph::{FontRef, PxScale, Font};
+use ab_glyph::{FontRef, PxScale};
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -38,8 +38,6 @@ pub fn watermark(
     image: DynamicImage,
     params: &WatermarkParams,
 ) -> Result<DynamicImage, (DynamicImage, String)> {
-    // Always operate on RGBA8
-    let mut rgba_image = image.into_rgba8();
     // Load the font data from a byte array
     let font_data = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -49,11 +47,14 @@ pub fn watermark(
         Ok(f) => f,
         Err(_) => {
             return Err((
-                DynamicImage::ImageRgba8(rgba_image),
+                image,
                 "Failed to load font".to_string(),
             ))
         }
     };
+
+    // Always operate on RGBA8
+    let mut rgba_image = image.into_rgba8();
 
     let scale = PxScale::from(params.font_size as f32);
     let color = Rgba([
@@ -142,7 +143,7 @@ pub(crate) fn watermark_image(
             let ix = x + wx;
             let iy = y + wy;
             if ix < img_width && iy < img_height {
-                let mut base_px = rgba_image.get_pixel_mut(ix, iy);
+                let base_px = rgba_image.get_pixel_mut(ix, iy);
                 // Alpha blend
                 let alpha = px[3] as f32 / 255.0;
                 for c in 0..3 {
@@ -160,7 +161,7 @@ pub(crate) fn watermark_image(
 mod tests {
     use super::*;
     use crate::image::params::{WatermarkParams, WatermarkPosition};
-    use image::{DynamicImage, ImageBuffer, Rgba};
+    use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(

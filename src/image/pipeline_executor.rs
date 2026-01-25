@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn test_execute_single_operation_convert_failure() {
         let image = create_test_image(100, 100);
-        let spec = create_op_spec(json!({
+        let spec = create_op_spec(&json!({
             "operation": "convert",
             "params": {
                 "format": "invalid_fmt",
