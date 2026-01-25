@@ -534,4 +534,21 @@ mod tests {
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (25, 25));
     }
+
+    #[test]
+    fn test_execute_single_operation_convert_failure() {
+        let image = create_test_image(100, 100);
+        let spec = create_op_spec(json!({
+            "operation": "convert",
+            "params": {
+                "format": "invalid_fmt",
+            },
+            "ignoreFailure": false
+        }));
+
+        let result = execute_single_operation(image, &spec);
+        assert!(result.is_err());
+        let (returned_image, _) = result.err().unwrap();
+        assert_eq!(returned_image.dimensions(), (100, 100));
+    }
 }
