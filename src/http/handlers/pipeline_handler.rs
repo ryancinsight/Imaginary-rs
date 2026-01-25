@@ -57,8 +57,8 @@ pub async fn process_pipeline(
     query: Option<Query<PipelineQuery>>,
     multipart: Option<Multipart>,
 ) -> Result<Response, AppError> {
-    let (image_bytes, operations_spec, original_format) = match method {
-        Method::GET => handle_get_request(query, &config).await?,
+    let (image_bytes, operations_spec, original_format) = match method.clone() {
+        Method::GET | Method::HEAD => handle_get_request(query, &config).await?,
         Method::POST => handle_post_request(multipart, &config).await?,
         _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
     };
@@ -84,8 +84,20 @@ pub async fn process_pipeline(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Image processing task failed: {}", e)))??;
 
-    Response::builder()
-        .header("Content-Type", content_type)
+    let mut response_builder = Response::builder().header("Content-Type", content_type);
+
+    match method {
+        Method::GET | Method::HEAD => {
+            response_builder =
+                response_builder.header("Cache-Control", "public, max-age=31536000, immutable");
+        }
+        Method::POST => {
+            response_builder = response_builder.header("Cache-Control", "no-store");
+        }
+        _ => {}
+    }
+
+    response_builder
         .body(axum::body::Body::from(final_image_bytes))
         .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))
 }
