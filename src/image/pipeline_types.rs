@@ -8,7 +8,7 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use super::params::*;
 
 /// Specification for a single operation in an image processing pipeline.
-#[derive(Debug, Clone, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
 #[serde(rename_all = "camelCase")]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
@@ -22,7 +22,7 @@ pub struct PipelineOperationSpec {
 }
 
 /// Enum of all supported image operations for the pipeline, including their parameters.
-#[derive(Debug, Clone, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
 #[serde(tag = "operation", content = "params")]
 #[serde(rename_all = "camelCase")]
 #[archive(check_bytes)]
