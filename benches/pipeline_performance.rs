@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use imaginary::image::pipeline_executor::execute_pipeline;
-use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
+use imaginary::image::pipeline_types::{PipelineOperation, PipelineOperationSpec};
+use imaginary::image::params::{ResizeParams, BlurParams, CropParams, RotateParams, AdjustBrightnessParams, FormatConversionParams};
 use image::{DynamicImage, ImageBuffer, RgbImage};
-use serde_json::json;
 use std::thread;
 use std::sync::Arc;
 
@@ -28,52 +28,43 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
     let operation_sets = vec![
         (1, "single_operation", vec![
             PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 400, "height": 300}),
+                operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
                 ignore_failure: false,
             },
         ]),
         (3, "three_operations", vec![
             PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 400, "height": 300}),
+                operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::Grayscale,
-                params: json!({}),
+                operation: PipelineOperation::Grayscale,
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::Blur,
-                params: json!({"sigma": 1.0}),
+                operation: PipelineOperation::Blur(BlurParams { sigma: 1.0, minampl: None }),
                 ignore_failure: false,
             },
         ]),
         (5, "five_operations", vec![
             PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 600, "height": 400}),
+                operation: PipelineOperation::Resize(ResizeParams { width: 600, height: 400, ..Default::default() }),
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::Crop,
-                params: json!({"x": 50, "y": 50, "width": 500, "height": 300}),
+                operation: PipelineOperation::Crop(CropParams { x: 50, y: 50, width: 500, height: 300 }),
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::Rotate,
-                params: json!({"degrees": 90.0}),
+                operation: PipelineOperation::Rotate(RotateParams { degrees: 90.0 }),
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::AdjustBrightness,
-                params: json!({"value": 10}),
+                operation: PipelineOperation::AdjustBrightness(AdjustBrightnessParams { value: 10 }),
                 ignore_failure: false,
             },
             PipelineOperationSpec {
-                operation: SupportedOperation::Sharpen,
-                params: json!({}),
+                operation: PipelineOperation::Sharpen,
                 ignore_failure: false,
             },
         ]),
@@ -111,18 +102,15 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
     
     let operations = vec![
         PipelineOperationSpec {
-            operation: SupportedOperation::Resize,
-            params: json!({"width": 400, "height": 300}),
+            operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: SupportedOperation::Grayscale,
-            params: json!({}),
+            operation: PipelineOperation::Grayscale,
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: SupportedOperation::Blur,
-            params: json!({"sigma": 2.0}),
+            operation: PipelineOperation::Blur(BlurParams { sigma: 2.0, minampl: None }),
             ignore_failure: false,
         },
     ];
@@ -154,18 +142,15 @@ fn bench_concurrent_processing(c: &mut Criterion) {
     let test_image = Arc::new(create_test_image(800, 600));
     let operations = Arc::new(vec![
         PipelineOperationSpec {
-            operation: SupportedOperation::Resize,
-            params: json!({"width": 400, "height": 300}),
+            operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: SupportedOperation::Grayscale,
-            params: json!({}),
+            operation: PipelineOperation::Grayscale,
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: SupportedOperation::Blur,
-            params: json!({"sigma": 1.0}),
+            operation: PipelineOperation::Blur(BlurParams { sigma: 1.0, minampl: None }),
             ignore_failure: false,
         },
     ]);
@@ -216,7 +201,7 @@ fn bench_format_performance(c: &mut Criterion) {
     for quality in [50, 80, 95] {
         format_operations.push((
             format!("jpeg_quality_{}", quality),
-            json!({"format": "jpeg", "quality": quality}),
+            FormatConversionParams { format: "jpeg".to_string(), quality: Some(quality) },
         ));
     }
     
@@ -224,21 +209,20 @@ fn bench_format_performance(c: &mut Criterion) {
     for quality in [50, 80, 95] {
         format_operations.push((
             format!("webp_quality_{}", quality),
-            json!({"format": "webp", "quality": quality}),
+            FormatConversionParams { format: "webp".to_string(), quality: Some(quality) },
         ));
     }
     
     // PNG (lossless format - quality parameter ignored)
     format_operations.push((
         "png_lossless".to_string(),
-        json!({"format": "png"}),
+        FormatConversionParams { format: "png".to_string(), quality: None },
     ));
     
     for (format_name, params) in format_operations {
         let operations = vec![
             PipelineOperationSpec {
-                operation: SupportedOperation::Convert,
-                params,
+                operation: PipelineOperation::Convert(params),
                 ignore_failure: false,
             },
         ];
