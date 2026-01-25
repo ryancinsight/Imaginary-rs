@@ -1,5 +1,5 @@
 use crate::http::errors::ImageError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 /// Trait for validating operation parameters. Implemented by all parameter structs.
@@ -9,7 +9,7 @@ pub trait Validate {
 }
 
 /// Filter type to use for resizing.
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub enum ResizeFilter {
@@ -25,7 +25,7 @@ pub enum ResizeFilter {
 /// - width: target width (must be > 0)
 /// - height: target height (must be > 0)
 /// - filter: filter algorithm (default: Lanczos3)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct ResizeParams {
@@ -55,7 +55,7 @@ impl Validate for ResizeParams {
 
 /// Parameters for rotating an image.
 /// - degrees: rotation angle (0 <= degrees < 360)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct RotateParams {
@@ -82,7 +82,7 @@ impl Validate for RotateParams {
 /// Parameters for cropping an image.
 /// - x, y: top-left corner
 /// - width, height: crop size (must be > 0)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct CropParams {
@@ -109,7 +109,7 @@ impl Validate for CropParams {
 }
 
 /// Position for watermark placement.
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub enum WatermarkPosition {
@@ -128,7 +128,7 @@ pub enum WatermarkPosition {
 /// - font_size: > 0
 /// - color: [R, G, B]
 /// - x, y: optional manual position
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct WatermarkParams {
@@ -189,7 +189,7 @@ impl Validate for WatermarkParams {
 /// Parameters for embedding an image in a box (resize fit + pad).
 /// - width, height: box size
 /// - background: optional RGBA color (default white)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct EmbedParams {
@@ -219,7 +219,7 @@ impl Validate for EmbedParams {
 /// Parameters for format conversion.
 /// - format: target format (e.g., "png", "jpeg")
 /// - quality: optional, 0-100
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct FormatConversionParams {
@@ -249,7 +249,7 @@ impl Validate for FormatConversionParams {
 /// Parameters for smart cropping.
 /// - width, height: target size (must be > 0)
 /// - quality: optional
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct SmartCropParams {
@@ -275,7 +275,7 @@ impl Validate for SmartCropParams {
 
 /// Parameters for brightness adjustment.
 /// - value: brightness delta
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct AdjustBrightnessParams {
@@ -291,7 +291,7 @@ impl Validate for AdjustBrightnessParams {
 
 /// Parameters for contrast adjustment.
 /// - value: contrast delta
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct AdjustContrastParams {
@@ -308,7 +308,7 @@ impl Validate for AdjustContrastParams {
 /// Parameters for Gaussian blur.
 /// - sigma: blur radius (> 0)
 /// - minampl: optional, minimum amplitude
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct BlurParams {
@@ -337,7 +337,7 @@ impl Validate for BlurParams {
 
 /// Parameters for thumbnail creation.
 /// - width, height: target size (must be > 0)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct ThumbnailParams {
@@ -361,7 +361,7 @@ impl Validate for ThumbnailParams {
 /// Parameters for extracting a subregion.
 /// - x, y: top-left
 /// - width, height: region size (must be > 0)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct ExtractParams {
@@ -388,7 +388,7 @@ impl Validate for ExtractParams {
 
 /// Parameters for zooming.
 /// - factor: zoom factor (> 0)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct ZoomParams {
@@ -414,7 +414,7 @@ impl Validate for ZoomParams {
 /// Parameters for image watermarking.
 /// - opacity: 0.0-1.0
 /// - position: WatermarkPosition
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct WatermarkImageParams {
@@ -439,7 +439,7 @@ impl Validate for WatermarkImageParams {
 /// Parameters for fitting an image within dimensions (preserving aspect ratio).
 /// - width, height: target bounding box (must be > 0)
 /// - filter: filter algorithm
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct FitParams {
@@ -465,7 +465,7 @@ impl Validate for FitParams {
 /// Parameters for filling dimensions (resize to cover + crop).
 /// - width, height: target size (must be > 0)
 /// - filter: filter algorithm
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct FillParams {
@@ -490,7 +490,7 @@ impl Validate for FillParams {
 
 /// Parameters for gamma correction.
 /// - value: gamma value (must be > 0)
-#[derive(Debug, Deserialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct GammaParams {
