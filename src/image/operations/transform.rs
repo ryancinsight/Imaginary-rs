@@ -38,9 +38,12 @@ impl From<&ResizeFilter> for FilterType {
     }
 }
 
+pub mod fit;
+pub use fit::fit;
+
 /// Helper function to perform resizing using fast_image_resize.
 /// This attempts to preserve the pixel format to avoid unnecessary conversions.
-fn resize_fast(
+pub(crate) fn resize_fast(
     image: DynamicImage,
     width: u32,
     height: u32,
@@ -157,8 +160,8 @@ pub fn resize(image: DynamicImage, params: &ResizeParams) -> DynamicImage {
 }
 
 /// Resize the image to fit within the given dimensions, preserving aspect ratio.
-pub fn fit(image: DynamicImage, params: &FitParams) -> DynamicImage {
-    params.validate().expect("Invalid fit params");
+/// This internal helper allows upscaling (unlike the public fit operation).
+fn resize_fit_scale(image: DynamicImage, params: &FitParams) -> DynamicImage {
     let (orig_w, orig_h) = image.dimensions();
 
     // Calculate new dimensions
@@ -205,8 +208,9 @@ pub fn embed(image: DynamicImage, params: &EmbedParams) -> DynamicImage {
         width: params.width,
         height: params.height,
         filter: ResizeFilter::Lanczos3,
+        background: None,
     };
-    let resized = fit(image, &fit_params).into_rgba8();
+    let resized = resize_fit_scale(image, &fit_params).into_rgba8();
 
     // 2. Create a new image with background color
     let mut background = ImageBuffer::from_pixel(
@@ -488,14 +492,15 @@ mod tests {
     }
 
     #[test]
-    fn test_fit() {
+    fn test_fit_internal() {
         let img = create_test_image(100, 50); // 2:1 ratio
         let params = FitParams {
             width: 50,
             height: 50,
             filter: ResizeFilter::Nearest,
+            background: None,
         };
-        let fitted = fit(img, &params);
+        let fitted = resize_fit_scale(img, &params);
         // Should fit into 50x50.
         // 100x50 -> 50x25 to preserve aspect ratio.
         assert_eq!(fitted.dimensions(), (50, 25));

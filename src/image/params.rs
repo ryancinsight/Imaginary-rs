@@ -438,6 +438,7 @@ impl Validate for WatermarkImageParams {
 /// Parameters for fitting an image within dimensions (preserving aspect ratio).
 /// - width, height: target bounding box (must be > 0)
 /// - filter: filter algorithm
+/// - background: optional background color to fill padding (default black if None)
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
@@ -448,6 +449,8 @@ pub struct FitParams {
     pub height: u32,
     #[serde(default)]
     pub filter: ResizeFilter,
+    #[serde(default)]
+    pub background: Option<[u8; 4]>,
 }
 
 impl Validate for FitParams {
