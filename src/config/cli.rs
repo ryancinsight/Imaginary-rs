@@ -94,6 +94,20 @@ pub fn build_cli() -> Command {
                 .default_value("1073741824"),
         )
         .arg(
+            Arg::new("cache-cleanup-interval")
+                .long("cache-cleanup-interval")
+                .value_name("SECONDS")
+                .help("Sets the cache cleanup interval in seconds")
+                .default_value("3600"),
+        )
+        .arg(
+            Arg::new("cache-max-age")
+                .long("cache-max-age")
+                .value_name("SECONDS")
+                .help("Sets the cache max age in seconds")
+                .default_value("86400"),
+        )
+        .arg(
             Arg::new("config")
                 .short('c')
                 .long("config")

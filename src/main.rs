@@ -147,6 +147,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pass the semaphore to the server
     // server::run_server(config, semaphore).await?;
 
+    // Start cache cleanup task
+    storage::start_cache_cleanup_task(config.storage.clone());
+
     let http_version = matches
         .get_one::<String>("http-version")
         .map(|s| s.as_str())
