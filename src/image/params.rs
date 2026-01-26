@@ -411,17 +411,26 @@ impl Validate for ZoomParams {
 }
 
 /// Parameters for image watermarking.
+/// - watermark_url: URL of the watermark image (http/https)
 /// - opacity: 0.0-1.0
 /// - position: WatermarkPosition
+/// - scale: relative scale (e.g. 0.2 for 20% of main image width)
+/// - x_offset, y_offset: manual position offsets
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct WatermarkImageParams {
+    pub watermark_url: String,
     #[serde(default = "default_opacity")]
     pub opacity: f32,
     #[serde(default)]
     pub position: WatermarkPosition,
-    // In a real implementation, you would also have a field for the watermark image itself (e.g., as a path or bytes)
+    #[serde(default)]
+    pub scale: Option<f32>,
+    #[serde(default)]
+    pub x_offset: Option<i32>,
+    #[serde(default)]
+    pub y_offset: Option<i32>,
 }
 
 impl Validate for WatermarkImageParams {
@@ -430,6 +439,23 @@ impl Validate for WatermarkImageParams {
             return Err(ImageError::InvalidOpacity(
                 "Opacity must be between 0.0 and 1.0".to_string(),
             ));
+        }
+        if self.watermark_url.is_empty() {
+            return Err(ImageError::InvalidParameters(
+                "Watermark URL cannot be empty".to_string(),
+            ));
+        }
+        if !self.watermark_url.starts_with("http://") && !self.watermark_url.starts_with("https://") {
+            return Err(ImageError::InvalidParameters(
+                "Watermark URL must be http or https".to_string(),
+            ));
+        }
+        if let Some(scale) = self.scale {
+            if scale <= 0.0 {
+                return Err(ImageError::InvalidParameters(
+                    "Scale must be positive".to_string(),
+                ));
+            }
         }
         Ok(())
     }

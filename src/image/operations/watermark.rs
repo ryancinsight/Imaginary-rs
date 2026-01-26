@@ -2,11 +2,13 @@
 //!
 //! This module provides functions to apply text or image watermarks to images as part of the processing pipeline.
 
+use crate::config::Config;
+use crate::http::errors::AppError;
+use crate::http::request_utils::fetch_image_from_url;
 use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosition};
-use image::{DynamicImage, Rgba};
-use image::RgbaImage;
-use imageproc::drawing::{draw_text_mut, text_size};
 use ab_glyph::{FontRef, PxScale};
+use image::{DynamicImage, GenericImageView, Rgba};
+use imageproc::drawing::{draw_text_mut, text_size};
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -45,12 +47,7 @@ pub fn watermark(
     ));
     let font = match FontRef::try_from_slice(font_data) {
         Ok(f) => f,
-        Err(_) => {
-            return Err((
-                image,
-                "Failed to load font".to_string(),
-            ))
-        }
+        Err(_) => return Err((image, "Failed to load font".to_string())),
     };
 
     // Always operate on RGBA8
@@ -74,11 +71,10 @@ pub fn watermark(
         (Some(x), Some(y)) => (x, y),
         _ => match params.position {
             WatermarkPosition::TopLeft => (margin, margin),
-            WatermarkPosition::TopRight => (
-                width.saturating_sub(glyphs_width + margin),
-                margin,
-            ),
-            WatermarkPosition::BottomLeft => (margin, height.saturating_sub(glyphs_height + margin)),
+            WatermarkPosition::TopRight => (width.saturating_sub(glyphs_width + margin), margin),
+            WatermarkPosition::BottomLeft => {
+                (margin, height.saturating_sub(glyphs_height + margin))
+            }
             WatermarkPosition::BottomRight => (
                 width.saturating_sub(glyphs_width + margin),
                 height.saturating_sub(glyphs_height + margin),
@@ -104,57 +100,90 @@ pub fn watermark(
 }
 
 /// Overlays a watermark image onto the base image at the specified position and opacity.
-pub(crate) fn watermark_image(
+pub fn watermark_image(
     image: DynamicImage,
     params: &WatermarkImageParams,
-) -> DynamicImage {
-    // Use into_rgba8 for better performance and in-place modification
-    let mut rgba_image = image.into_rgba8();
+    config: &Config,
+    handle: &tokio::runtime::Handle,
+) -> Result<DynamicImage, (DynamicImage, AppError)> {
+    let url = &params.watermark_url;
 
-    // For demonstration, use a placeholder watermark image (solid color or pattern)
-    // In a real implementation, params would include the watermark image bytes or path
-    let (img_width, img_height) = rgba_image.dimensions();
-    let watermark_width = img_width / 4;
-    let watermark_height = img_height / 4;
-    let watermark = RgbaImage::from_pixel(
-        watermark_width,
-        watermark_height,
-        Rgba([255, 255, 255, (params.opacity * 255.0) as u8]),
-    );
+    // Block on async fetch using the provided runtime handle
+    let bytes = match handle.block_on(fetch_image_from_url(url, config)) {
+        Ok(b) => b,
+        Err(e) => return Err((image, e)),
+    };
 
-    // Positioning logic (center by default)
-    let (x, y) = match params.position {
-        WatermarkPosition::TopLeft => (0, 0),
-        WatermarkPosition::TopRight => (img_width - watermark_width, 0),
-        WatermarkPosition::BottomLeft => (0, img_height - watermark_height),
-        WatermarkPosition::BottomRight => {
-            (img_width - watermark_width, img_height - watermark_height)
+    let watermark_img = match image::load_from_memory(&bytes) {
+        Ok(img) => img,
+        Err(e) => {
+            return Err((
+                image,
+                AppError::ImageProcessingError(format!("Failed to load watermark: {}", e)),
+            ))
         }
+    };
+
+    Ok(apply_watermark(image, watermark_img, params))
+}
+
+fn apply_watermark(
+    mut image: DynamicImage,
+    watermark: DynamicImage,
+    params: &WatermarkImageParams,
+) -> DynamicImage {
+    let mut watermark = watermark.into_rgba8();
+
+    // Scale watermark if needed
+    if let Some(scale) = params.scale {
+        let target_width = (image.width() as f32 * scale) as u32;
+        if target_width > 0 {
+            let w = DynamicImage::ImageRgba8(watermark);
+            watermark = w
+                .resize(
+                    target_width,
+                    u32::MAX,
+                    image::imageops::FilterType::Lanczos3,
+                )
+                .into_rgba8();
+        }
+    }
+
+    // Apply opacity
+    if params.opacity < 1.0 {
+        for pixel in watermark.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * params.opacity) as u8;
+        }
+    }
+
+    // Calculate position
+    let (width, height) = image.dimensions();
+    let (w_width, w_height) = watermark.dimensions();
+
+    let (mut x, mut y) = match params.position {
+        WatermarkPosition::TopLeft => (0, 0),
+        WatermarkPosition::TopRight => (width.saturating_sub(w_width), 0),
+        WatermarkPosition::BottomLeft => (0, height.saturating_sub(w_height)),
+        WatermarkPosition::BottomRight => (
+            width.saturating_sub(w_width),
+            height.saturating_sub(w_height),
+        ),
         WatermarkPosition::Center => (
-            (img_width - watermark_width) / 2,
-            (img_height - watermark_height) / 2,
+            (width.saturating_sub(w_width)) / 2,
+            (height.saturating_sub(w_height)) / 2,
         ),
     };
 
-    // Blend watermark onto the image
-    for wy in 0..watermark_height {
-        for wx in 0..watermark_width {
-            let px = watermark.get_pixel(wx, wy);
-            let ix = x + wx;
-            let iy = y + wy;
-            if ix < img_width && iy < img_height {
-                let base_px = rgba_image.get_pixel_mut(ix, iy);
-                // Alpha blend
-                let alpha = px[3] as f32 / 255.0;
-                for c in 0..3 {
-                    base_px[c] = ((1.0 - alpha) * base_px[c] as f32 + alpha * px[c] as f32) as u8;
-                }
-                // base_px[3] is preserved (or should we blend alpha too? Usually alpha blend implies output alpha change if src has alpha)
-                // But simplified here as per original code structure
-            }
-        }
+    // Apply offsets
+    if let Some(offset_x) = params.x_offset {
+        x = (x as i64 + offset_x as i64).max(0) as u32;
     }
-    DynamicImage::ImageRgba8(rgba_image)
+    if let Some(offset_y) = params.y_offset {
+        y = (y as i64 + offset_y as i64).max(0) as u32;
+    }
+
+    image::imageops::overlay(&mut image, &watermark, x as i64, y as i64);
+    image
 }
 
 #[cfg(test)]
@@ -300,27 +329,71 @@ mod tests {
     }
 
     #[test]
-    fn test_watermark_image_center() {
+    fn test_apply_watermark_center() {
         let img = create_test_image(200, 100);
+        let watermark = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            50,
+            50,
+            Rgba([255, 255, 255, 255]),
+        ));
         let params = WatermarkImageParams {
+            watermark_url: "http://example.com/wm.png".to_string(),
             opacity: 0.5,
             position: WatermarkPosition::Center,
+            scale: None,
+            x_offset: None,
+            y_offset: None,
         };
-        let result = watermark_image(img, &params);
-        // Check that the center region is not pure black (watermark applied)
+        let result = apply_watermark(img, watermark, &params);
         let px = result.get_pixel(100, 50);
-        assert!(px[0] > 0 && px[3] == 255);
+        // Blended: 0.5 * 0 + 0.5 * 255 = 127.
+        assert!(px[0] > 100);
     }
 
     #[test]
-    fn test_watermark_image_top_left() {
+    fn test_apply_watermark_scaling() {
         let img = create_test_image(200, 100);
+        let watermark = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            100,
+            100,
+            Rgba([255, 255, 255, 255]),
+        ));
         let params = WatermarkImageParams {
-            opacity: 0.8,
+            watermark_url: "http://example.com/wm.png".to_string(),
+            opacity: 1.0,
             position: WatermarkPosition::TopLeft,
+            scale: Some(0.1), // Should scale to 20px width (200 * 0.1)
+            x_offset: None,
+            y_offset: None,
         };
-        let result = watermark_image(img, &params);
+        let result = apply_watermark(img, watermark, &params);
+        // Check pixel at 10,10 (inside 20x20 box)
         let px = result.get_pixel(10, 10);
-        assert!(px[0] > 0 && px[3] == 255);
+        assert_eq!(px[0], 255);
+        // Check pixel at 25,25 (outside 20x20 box)
+        let px_out = result.get_pixel(25, 25);
+        assert_eq!(px_out[0], 0);
+    }
+
+    #[test]
+    fn test_apply_watermark_offset() {
+        let img = create_test_image(200, 100);
+        let watermark = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            20,
+            20,
+            Rgba([255, 255, 255, 255]),
+        ));
+        let params = WatermarkImageParams {
+            watermark_url: "http://example.com/wm.png".to_string(),
+            opacity: 1.0,
+            position: WatermarkPosition::TopLeft,
+            scale: None,
+            x_offset: Some(50),
+            y_offset: Some(20),
+        };
+        let result = apply_watermark(img, watermark, &params);
+        // Should be at 50, 20
+        assert_eq!(result.get_pixel(55, 25)[0], 255);
+        assert_eq!(result.get_pixel(10, 10)[0], 0);
     }
 }

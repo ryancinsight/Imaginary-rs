@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use imaginary::config::Config;
 use imaginary::image::operations::*;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
@@ -238,6 +239,8 @@ fn bench_format_conversion(c: &mut Criterion) {
 // Benchmark complete pipeline operations
 fn bench_pipeline(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_operations");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let img = create_test_image(1200, 800);
     
@@ -289,6 +292,8 @@ fn bench_pipeline(c: &mut Criterion) {
             black_box(execute_pipeline(
                 black_box(img.clone()),
                 black_box(simple_ops.clone()),
+                &Config::default(),
+                handle,
             ))
         })
     });
@@ -298,6 +303,8 @@ fn bench_pipeline(c: &mut Criterion) {
             black_box(execute_pipeline(
                 black_box(img.clone()),
                 black_box(complex_ops.clone()),
+                &Config::default(),
+                handle,
             ))
         })
     });

@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperation, PipelineOperationSpec};
 use imaginary::image::params::{ResizeParams, BlurParams, CropParams, RotateParams, AdjustBrightnessParams, FormatConversionParams};
@@ -21,6 +22,8 @@ fn create_test_image(width: u32, height: u32) -> DynamicImage {
 // Benchmark pipeline processing with different operation counts
 fn bench_pipeline_operations_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_operations_count");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let test_image = create_test_image(800, 600);
     
@@ -79,6 +82,8 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(test_image.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
+                        handle,
                     ))
                 })
             },
@@ -91,6 +96,8 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
 // Benchmark memory usage patterns
 fn bench_memory_usage_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_usage_patterns");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     // Test with different image sizes to understand memory scaling
     let image_sizes = vec![
@@ -126,6 +133,8 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(img.clone()),
                         black_box(operations.clone()),
+                        &Config::default(),
+                        handle,
                     ))
                 })
             },
@@ -169,7 +178,9 @@ fn bench_concurrent_processing(c: &mut Criterion) {
                             let ops = operations.clone();
                             
                             thread::spawn(move || {
-                                execute_pipeline((*img).clone(), (*ops).clone())
+                                let rt = tokio::runtime::Runtime::new().unwrap();
+                                let handle = rt.handle();
+                                execute_pipeline((*img).clone(), (*ops).clone(), &Config::default(), handle)
                             })
                         })
                         .collect();
@@ -191,6 +202,8 @@ fn bench_concurrent_processing(c: &mut Criterion) {
 // Benchmark format conversion performance
 fn bench_format_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("format_performance");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let test_image = create_test_image(800, 600);
     
@@ -235,6 +248,8 @@ fn bench_format_performance(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(test_image.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
+                        handle,
                     ))
                 })
             },
