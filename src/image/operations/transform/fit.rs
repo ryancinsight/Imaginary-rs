@@ -1,5 +1,5 @@
 use crate::http::errors::ImageError;
-use crate::image::params::{FitParams, ResizeFilter, Validate};
+use crate::image::params::{FitParams, Validate};
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
 /// Resize the image to fit within the given dimensions while preserving aspect ratio.
@@ -26,13 +26,7 @@ pub fn fit(image: DynamicImage, params: &FitParams) -> Result<DynamicImage, (Dyn
     let new_h = (orig_h as f64 * scale).round().max(1.0) as u32;
 
     // Convert ResizeFilter to image::imageops::FilterType
-    let filter = match params.filter {
-        ResizeFilter::Lanczos3 => imageops::FilterType::Lanczos3,
-        ResizeFilter::Gaussian => imageops::FilterType::Gaussian,
-        ResizeFilter::Nearest => imageops::FilterType::Nearest,
-        ResizeFilter::Triangle => imageops::FilterType::Triangle,
-        ResizeFilter::CatmullRom => imageops::FilterType::CatmullRom,
-    };
+    let filter = imageops::FilterType::from(&params.filter);
 
     // Resize using image::imageops
     // Note: This converts the image to RGBA8 format as imageops::resize returns an ImageBuffer
