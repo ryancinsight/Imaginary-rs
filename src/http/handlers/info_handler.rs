@@ -85,10 +85,15 @@ pub async fn get_info(
         _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
     };
 
-    let format = image::guess_format(&image_bytes)
-        .map_err(|_| AppError::UnsupportedMediaType("Unknown format".to_string()))?;
-    let image = image::load_from_memory_with_format(&image_bytes, format)
-        .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
+    let (image, format) = tokio::task::spawn_blocking(move || {
+        let format = image::guess_format(&image_bytes)
+            .map_err(|_| AppError::UnsupportedMediaType("Unknown format".to_string()))?;
+        let image = image::load_from_memory_with_format(&image_bytes, format)
+            .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
+        Ok::<(image::DynamicImage, image::ImageFormat), AppError>((image, format))
+    })
+    .await
+    .map_err(|e| AppError::InternalServerError(format!("Task join error: {}", e)))??;
 
     let (width, height) = image.dimensions();
     let color_type = image.color();
