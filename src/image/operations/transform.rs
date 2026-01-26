@@ -354,9 +354,22 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     let mut best_x = 0;
     let mut best_y = 0;
 
-    // Search step size to reduce iterations
-    let step_x = (crop_w / 20).max(1);
-    let step_y = (crop_h / 20).max(1);
+    // Calculate stride based on quality.
+    // Default (None) uses a heuristic (approx 5% of crop dimension).
+    // Quality 100 uses step 1.
+    // Quality 0 uses step ~10% of crop dimension.
+    let max_step_x = (crop_w / 10).max(1);
+    let max_step_y = (crop_h / 10).max(1);
+    let min_step = 1;
+
+    let q = params.quality.unwrap_or(50).min(100) as f32 / 100.0;
+
+    let step_x = (max_step_x as f32 * (1.0 - q) + min_step as f32 * q)
+        .round()
+        .max(1.0) as u32;
+    let step_y = (max_step_y as f32 * (1.0 - q) + min_step as f32 * q)
+        .round()
+        .max(1.0) as u32;
 
     // Generate candidates for parallel processing
     let mut candidates = Vec::new();
@@ -564,6 +577,38 @@ mod tests {
         };
         let cropped = smart_crop(img, &params);
         assert_eq!(cropped.dimensions(), (50, 50));
+    }
+
+    #[test]
+    fn test_smart_crop_quality() {
+        let img = create_test_image(100, 100);
+
+        // Test with quality 100 (step 1)
+        let params_high = SmartCropParams {
+            width: 50,
+            height: 50,
+            quality: Some(100),
+        };
+        let cropped_high = smart_crop(img.clone(), &params_high);
+        assert_eq!(cropped_high.dimensions(), (50, 50));
+
+        // Test with quality 0 (step ~10% crop)
+        let params_low = SmartCropParams {
+            width: 50,
+            height: 50,
+            quality: Some(0),
+        };
+        let cropped_low = smart_crop(img.clone(), &params_low);
+        assert_eq!(cropped_low.dimensions(), (50, 50));
+
+        // Test with quality 50 (default)
+        let params_mid = SmartCropParams {
+            width: 50,
+            height: 50,
+            quality: Some(50),
+        };
+        let cropped_mid = smart_crop(img, &params_mid);
+        assert_eq!(cropped_mid.dimensions(), (50, 50));
     }
 
     #[test]
