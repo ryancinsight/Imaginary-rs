@@ -49,10 +49,12 @@ pub async fn readiness_check() -> impl IntoResponse {
     info!("Readiness check endpoint called");
 
     // Perform basic system checks
-    let memory_check = check_memory_usage();
-    let disk_check = tokio::task::spawn_blocking(check_disk_space)
-        .await
-        .unwrap_or(false);
+    let (memory_check, disk_check) = tokio::join!(
+        check_memory_usage(),
+        tokio::task::spawn_blocking(check_disk_space)
+    );
+
+    let disk_check = disk_check.unwrap_or(false);
 
     let is_ready = memory_check && disk_check;
     let status_code = if is_ready {
@@ -93,7 +95,7 @@ pub async fn metrics() -> impl IntoResponse {
         "uptime_seconds": uptime_seconds,
         "requests_total": REQUEST_COUNT.load(Ordering::Relaxed),
         "errors_total": ERROR_COUNT.load(Ordering::Relaxed),
-        "memory_usage_bytes": get_memory_usage(),
+        "memory_usage_bytes": get_memory_usage().await,
         "timestamp": SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -102,22 +104,26 @@ pub async fn metrics() -> impl IntoResponse {
 }
 
 /// Check memory usage - returns true if usage is reasonable (less than 90%)
-fn check_memory_usage() -> bool {
-    let mut system = SYSTEM
-        .get_or_init(|| std::sync::Mutex::new(System::new()))
-        .lock()
-        .unwrap();
-    system.refresh_memory();
+async fn check_memory_usage() -> bool {
+    tokio::task::spawn_blocking(|| {
+        let mut system = SYSTEM
+            .get_or_init(|| std::sync::Mutex::new(System::new()))
+            .lock()
+            .unwrap();
+        system.refresh_memory();
 
-    let total_memory = system.total_memory();
-    let used_memory = system.used_memory();
+        let total_memory = system.total_memory();
+        let used_memory = system.used_memory();
 
-    if total_memory == 0 {
-        return true; // Can't determine, assume healthy
-    }
+        if total_memory == 0 {
+            return true; // Can't determine, assume healthy
+        }
 
-    let usage_percentage = (used_memory as f64 / total_memory as f64) * 100.0;
-    usage_percentage < 90.0
+        let usage_percentage = (used_memory as f64 / total_memory as f64) * 100.0;
+        usage_percentage < 90.0
+    })
+    .await
+    .unwrap_or(false)
 }
 
 /// Check disk space - returns true if available space is more than 10%
@@ -145,13 +151,17 @@ fn check_disk_space() -> bool {
 }
 
 /// Get current memory usage in bytes
-fn get_memory_usage() -> u64 {
-    let mut system = SYSTEM
-        .get_or_init(|| std::sync::Mutex::new(System::new()))
-        .lock()
-        .unwrap();
-    system.refresh_memory();
+async fn get_memory_usage() -> u64 {
+    tokio::task::spawn_blocking(|| {
+        let mut system = SYSTEM
+            .get_or_init(|| std::sync::Mutex::new(System::new()))
+            .lock()
+            .unwrap();
+        system.refresh_memory();
 
-    // Return used memory in bytes
-    system.used_memory()
+        // Return used memory in bytes
+        system.used_memory()
+    })
+    .await
+    .unwrap_or(0)
 }
