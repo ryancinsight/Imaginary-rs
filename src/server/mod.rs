@@ -24,7 +24,7 @@ use crate::http::handlers::health_handler::{health_check, metrics, readiness_che
 use crate::http::handlers::info_handler::get_info;
 use crate::http::handlers::palette_handler::get_palette;
 use crate::http::handlers::pipeline_handler::process_pipeline;
-use crate::server::middleware::{concurrency_limit_middleware, metrics_middleware};
+use crate::server::middleware::{concurrency_limit_middleware, log_request_and_errors, metrics_middleware};
 use axum::{
     body::Body,
     http::{HeaderName, Response, StatusCode},
@@ -126,6 +126,7 @@ pub fn create_router(config: Arc<Config>) -> Router {
         .route("/info", post(get_info).get(get_info))
         .route("/palette", post(get_palette).get(get_palette))
         .layer(axum::middleware::from_fn(metrics_middleware))
+        .layer(axum::middleware::from_fn(log_request_and_errors))
         .layer(common_middleware)
         .with_state(config)
 }
@@ -202,6 +203,7 @@ pub async fn run_server(
         .route("/info", post(get_info).get(get_info))
         .route("/palette", post(get_palette).get(get_palette))
         .layer(axum::middleware::from_fn(metrics_middleware))
+        .layer(axum::middleware::from_fn(log_request_and_errors))
         .layer(common_middleware)
         .with_state(config.clone());
 

@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::sync::Semaphore;
 use tracing::info;
 
-#[allow(dead_code)] // For future logging middleware
+// Request logging middleware
 pub async fn log_request_and_errors(
     req: Request<axum::body::Body>,
     next: Next,
