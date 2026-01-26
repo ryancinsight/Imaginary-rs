@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperation, PipelineOperationSpec};
 use imaginary::image::params::{ResizeParams, BlurParams, CropParams, RotateParams, AdjustBrightnessParams, FormatConversionParams};
@@ -79,6 +80,7 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(test_image.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
                     ))
                 })
             },
@@ -126,6 +128,7 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(img.clone()),
                         black_box(operations.clone()),
+                        &Config::default(),
                     ))
                 })
             },
@@ -169,7 +172,7 @@ fn bench_concurrent_processing(c: &mut Criterion) {
                             let ops = operations.clone();
                             
                             thread::spawn(move || {
-                                execute_pipeline((*img).clone(), (*ops).clone())
+                                execute_pipeline((*img).clone(), (*ops).clone(), &Config::default())
                             })
                         })
                         .collect();
@@ -235,6 +238,7 @@ fn bench_format_performance(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(test_image.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
                     ))
                 })
             },

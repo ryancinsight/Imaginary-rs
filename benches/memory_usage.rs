@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
 use image::{DynamicImage, ImageBuffer, RgbImage};
@@ -54,6 +55,7 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(img.clone()),
                         black_box(operations.clone()),
+                        &Config::default(),
                     ))
                 })
             },
@@ -132,6 +134,7 @@ fn bench_memory_by_operation_count(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(img.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
                     ))
                 })
             },
@@ -173,6 +176,7 @@ fn bench_memory_by_format(c: &mut Criterion) {
                     black_box(execute_pipeline(
                         black_box(img.clone()),
                         black_box(ops.clone()),
+                        &Config::default(),
                     ))
                 })
             },
@@ -208,6 +212,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
             black_box(execute_pipeline(
                 black_box(img.clone()),
                 black_box(operations.clone()),
+                &Config::default(),
             ))
         })
     });
@@ -221,6 +226,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
             black_box(execute_pipeline(
                 black_box(img_clone),
                 black_box(operations.clone()),
+                &Config::default(),
             ))
         })
     });
@@ -260,7 +266,7 @@ fn bench_memory_concurrent_load(c: &mut Criterion) {
                             let ops = operations.clone();
                             
                             thread::spawn(move || {
-                                execute_pipeline(img, ops)
+                                execute_pipeline(img, ops, &Config::default())
                             })
                         })
                         .collect();

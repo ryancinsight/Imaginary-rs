@@ -2,6 +2,7 @@ mod helpers;
 
 use helpers::{create_test_image, load_test_image, save_test_image};
 use image::GenericImageView;
+use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::PipelineOperationSpec;
 use serde_json::json;
@@ -43,7 +44,7 @@ fn test_complete_pipeline_with_real_image() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
     let processed = result.unwrap();
     assert_eq!(
@@ -65,7 +66,7 @@ fn test_format_conversion_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
 }
 
@@ -99,7 +100,7 @@ fn test_complex_pipeline_with_error_handling() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
     let processed = result.unwrap();
     // Image should maintain original dimensions since resize failed but was ignored
@@ -129,7 +130,7 @@ fn test_pipeline_with_different_image_formats() {
         })),
     ];
 
-    let result = execute_pipeline(tiff_image, operations);
+    let result = execute_pipeline(tiff_image, operations, &Config::default());
     assert!(result.is_ok());
     let processed = result.unwrap();
     assert_eq!(processed.dimensions(), (100, 100));
@@ -157,7 +158,7 @@ fn test_pipeline_with_rotation_and_blur() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
     let processed = result.unwrap();
     // After 90-degree rotation, dimensions should be swapped
@@ -179,7 +180,7 @@ fn test_resize_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
 
     let processed = result.unwrap();
@@ -197,7 +198,7 @@ fn test_blur_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
 }
 
@@ -231,7 +232,7 @@ fn test_complex_pipeline() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok());
 
     let processed = result.unwrap();
@@ -266,7 +267,7 @@ fn test_pipeline_with_ignored_failures() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_ok()); // Should succeed because first failure is ignored
 }
 
@@ -282,6 +283,6 @@ fn test_pipeline_error_handling() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations);
+    let result = execute_pipeline(image, operations, &Config::default());
     assert!(result.is_err());
 }

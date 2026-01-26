@@ -1,6 +1,7 @@
 use super::operations;
 use super::params::Validate;
 use super::pipeline_types::{PipelineOperation, PipelineOperationSpec};
+use crate::config::Config;
 use crate::http::errors::{AppError, ImageError};
 use image::DynamicImage;
 
@@ -9,6 +10,7 @@ use image::DynamicImage;
 /// # Arguments
 /// * `image` - The input image to process.
 /// * `operations_spec` - A vector of pipeline operation specifications.
+/// * `config` - Application configuration.
 ///
 /// # Returns
 /// * `Ok(DynamicImage)` with the processed image if all operations succeed (or failures are ignored).
@@ -16,13 +18,14 @@ use image::DynamicImage;
 pub fn execute_pipeline(
     mut image: DynamicImage,
     operations_spec: Vec<PipelineOperationSpec>,
+    config: &Config,
 ) -> Result<DynamicImage, AppError> {
     for spec in operations_spec {
         // Log the operation type (variant name)
         let operation_name = format!("{:?}", spec.operation);
         tracing::info!(operation = %operation_name, "Starting operation");
 
-        match execute_single_operation(image, &spec) {
+        match execute_single_operation(image, &spec, config) {
             Ok(processed_image) => {
                 tracing::info!(operation = %operation_name, "Operation succeeded");
                 image = processed_image;
@@ -53,11 +56,17 @@ pub fn execute_pipeline(
 fn execute_single_operation(
     image: DynamicImage,
     spec: &PipelineOperationSpec,
+    config: &Config,
 ) -> Result<DynamicImage, (DynamicImage, AppError)> {
     tracing::info!(operation = ?spec.operation, "Executing single operation");
 
     // Helper to map errors while returning image
-    let map_valid_err = |image: DynamicImage, op: &str, e: ImageError| (image, AppError::BadRequest(format!("Invalid {} params: {}", op, e)));
+    let map_valid_err = |image: DynamicImage, op: &str, e: ImageError| {
+        (
+            image,
+            AppError::BadRequest(format!("Invalid {} params: {}", op, e)),
+        )
+    };
 
     match &spec.operation {
         PipelineOperation::Resize(params) => {
@@ -152,14 +161,16 @@ fn execute_single_operation(
             }
             match operations::watermark::watermark(image, params) {
                 Ok(img) => Ok(img),
-                Err((returned_img, e_str)) => Err((returned_img, AppError::ImageProcessingError(e_str))),
+                Err((returned_img, e_str)) => {
+                    Err((returned_img, AppError::ImageProcessingError(e_str)))
+                }
             }
         }
         PipelineOperation::WatermarkImage(params) => {
             if let Err(e) = params.validate() {
                 return Err(map_valid_err(image, "WatermarkImage", e));
             }
-            Ok(operations::watermark::watermark_image(image, params))
+            operations::watermark::watermark_image(image, params, config)
         }
         PipelineOperation::Fit(params) => {
             if let Err(e) = params.validate() {
@@ -167,7 +178,9 @@ fn execute_single_operation(
             }
             match operations::fit(image, params) {
                 Ok(img) => Ok(img),
-                Err((returned_img, e)) => Err((returned_img, AppError::ImageProcessingError(e.to_string()))),
+                Err((returned_img, e)) => {
+                    Err((returned_img, AppError::ImageProcessingError(e.to_string())))
+                }
             }
         }
         PipelineOperation::Fill(params) => {
@@ -189,10 +202,10 @@ fn execute_single_operation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::image::params;
+    use crate::config::Config;
     use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
-    use serde_json::json;
     use serde::Deserialize;
+    use serde_json::json;
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
         DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
@@ -202,10 +215,14 @@ mod tests {
         ))
     }
 
+    fn default_config() -> Config {
+        Config::default()
+    }
+
     // Helper to convert JSON params to specific operation spec via deserialization
-    // This allows keeping the test structure similar to before but going through the new PipelineOperationSpec deserialization
     fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
-        PipelineOperationSpec::deserialize(json).expect("Failed to create PipelineOperationSpec from JSON")
+        PipelineOperationSpec::deserialize(json)
+            .expect("Failed to create PipelineOperationSpec from JSON")
     }
 
     #[test]
@@ -224,7 +241,7 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(
             result.is_ok(),
             "Pipeline failed at resize or blur: {:?}",
@@ -255,7 +272,7 @@ mod tests {
             "ignoreFailure": false
         }))];
 
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         if result.is_err() {
             println!("Watermark pipeline error: {:?}", result.as_ref().err());
         }
@@ -271,11 +288,6 @@ mod tests {
     #[test]
     fn test_pipeline_with_ignored_failures() {
         let image = create_test_image(100, 100);
-        // Note: validation happens during execution now for params validity in logic,
-        // but serde might not catch business rule validation (like width > 0).
-        // Wait, deserialization doesn't call validate(). validate() is called in execute_single_operation.
-        // So we can still pass invalid params via JSON.
-
         let operations = vec![
             create_op_spec(&json!({
                 "operation": "resize",
@@ -295,8 +307,7 @@ mod tests {
             })),
         ];
 
-        // The resize should fail due to validation (width=0), but be ignored.
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(
             result.is_ok(),
             "Pipeline with ignored failures failed: {:?}",
@@ -316,7 +327,7 @@ mod tests {
             "ignoreFailure": false
         }))];
 
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(
             result.is_err(),
             "Pipeline error handling did not catch error for invalid resize"
@@ -339,7 +350,7 @@ mod tests {
             },
             "ignoreFailure": false
         }))];
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(
             result.is_ok(),
             "Watermark with custom position and color failed: {:?}",
@@ -356,10 +367,6 @@ mod tests {
     #[test]
     fn test_watermark_invalid_params() {
         let image = create_test_image(100, 100);
-        // Missing text - Serde handles basic missing fields if not default,
-        // but 'text' has #[serde(default)] so it becomes empty string.
-        // Then validate() checks if empty.
-
         let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
             "params": {
@@ -373,19 +380,8 @@ mod tests {
             },
             "ignoreFailure": false
         }))];
-        let result = execute_pipeline(image.clone(), operations);
+        let result = execute_pipeline(image.clone(), operations, &default_config());
         assert!(result.is_err(), "Watermark missing text should error");
-
-        // Invalid color array (too short) - Serde will fail here if struct expects [u8; 3]
-        // But if we pass [0, 255], serde might fail deserialization?
-        // Yes, [u8; 3] requires 3 elements.
-        // If create_op_spec panics, test fails.
-        // We want to test that it fails gracefully if possible, but here we are testing execution.
-        // If the request is bad JSON, the handler rejects it before execution.
-        // But let's assume valid JSON structure but invalid values.
-
-        // Negative font size - u32 cannot be negative. Serde will fail.
-        // We should test logic validation.
     }
 
     #[test]
@@ -416,7 +412,7 @@ mod tests {
                 "ignoreFailure": false
             })),
         ];
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(
             result.is_ok(),
             "Pipeline grayscale->watermark->convert failed: {:?}",
@@ -430,7 +426,6 @@ mod tests {
         );
     }
 
-    // Additional comprehensive tests for execute_single_operation
     #[test]
     fn test_execute_single_operation_resize() {
         let image = create_test_image(100, 100);
@@ -440,7 +435,7 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(image, &spec, &default_config());
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 75));
@@ -455,10 +450,10 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(image, &spec, &default_config());
         assert!(result.is_err());
         let (returned_image, _err) = result.err().unwrap();
-        assert_eq!(returned_image.dimensions(), (100, 100)); // Should get original image back
+        assert_eq!(returned_image.dimensions(), (100, 100));
     }
 
     #[test]
@@ -469,7 +464,7 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(image, &spec, &default_config());
         assert!(result.is_ok());
     }
 
@@ -503,7 +498,7 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(result.is_ok(), "Complex pipeline failed: {:?}", result);
     }
 
@@ -532,7 +527,7 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations);
+        let result = execute_pipeline(image, operations, &default_config());
         assert!(result.is_ok(), "Pipeline with new operations failed: {:?}", result);
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (25, 25));
@@ -549,7 +544,7 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec);
+        let result = execute_single_operation(image, &spec, &default_config());
         assert!(result.is_err());
         let (returned_image, _) = result.err().unwrap();
         assert_eq!(returned_image.dimensions(), (100, 100));

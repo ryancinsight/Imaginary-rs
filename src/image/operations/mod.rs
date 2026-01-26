@@ -22,6 +22,6 @@ pub use transform::{
     crop, embed, enlarge, extract, fill, fit, flip_horizontal, flip_vertical, resize, rotate, smart_crop,
     thumbnail, zoom,
 };
-// pub use watermark::watermark; // Not re-exported at top level unless part of public API
+pub use watermark::{watermark, watermark_image};
 pub use format::{autorotate, convert_format};
 // Note: overlay and draw_text are not re-exported; use overlay::overlay if needed internally.
