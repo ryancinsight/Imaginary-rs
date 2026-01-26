@@ -165,7 +165,10 @@ fn execute_single_operation(
             if let Err(e) = params.validate() {
                 return Err(map_valid_err(image, "Fit", e));
             }
-            Ok(operations::fit(image, params))
+            match operations::fit(image, params) {
+                Ok(img) => Ok(img),
+                Err((returned_img, e)) => Err((returned_img, AppError::ImageProcessingError(e.to_string()))),
+            }
         }
         PipelineOperation::Fill(params) => {
             if let Err(e) = params.validate() {
