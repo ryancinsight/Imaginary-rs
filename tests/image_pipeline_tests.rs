@@ -13,6 +13,19 @@ fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
     PipelineOperationSpec::deserialize(json).expect("Failed to create PipelineOperationSpec from JSON")
 }
 
+// Helper to get runtime handle
+fn get_runtime_handle() -> tokio::runtime::Handle {
+    // For integration tests, we need to ensure a runtime exists
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle,
+        Err(_) => {
+            // Leak the runtime so it persists for the duration of the test
+            let rt = Box::leak(Box::new(tokio::runtime::Runtime::new().unwrap()));
+            rt.handle().clone()
+        }
+    }
+}
+
 #[test]
 fn test_complete_pipeline_with_real_image() {
     let image = load_test_image("balloons.png");
@@ -44,7 +57,7 @@ fn test_complete_pipeline_with_real_image() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
     let processed = result.unwrap();
     assert_eq!(
@@ -66,7 +79,7 @@ fn test_format_conversion_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
 }
 
@@ -100,7 +113,7 @@ fn test_complex_pipeline_with_error_handling() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
     let processed = result.unwrap();
     // Image should maintain original dimensions since resize failed but was ignored
@@ -130,7 +143,7 @@ fn test_pipeline_with_different_image_formats() {
         })),
     ];
 
-    let result = execute_pipeline(tiff_image, operations, &Config::default());
+    let result = execute_pipeline(tiff_image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
     let processed = result.unwrap();
     assert_eq!(processed.dimensions(), (100, 100));
@@ -158,7 +171,7 @@ fn test_pipeline_with_rotation_and_blur() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
     let processed = result.unwrap();
     // After 90-degree rotation, dimensions should be swapped
@@ -180,7 +193,7 @@ fn test_resize_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
 
     let processed = result.unwrap();
@@ -198,7 +211,7 @@ fn test_blur_pipeline() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
 }
 
@@ -232,7 +245,7 @@ fn test_complex_pipeline() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok());
 
     let processed = result.unwrap();
@@ -267,7 +280,7 @@ fn test_pipeline_with_ignored_failures() {
         })),
     ];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_ok()); // Should succeed because first failure is ignored
 }
 
@@ -283,6 +296,6 @@ fn test_pipeline_error_handling() {
         "ignoreFailure": false
     }))];
 
-    let result = execute_pipeline(image, operations, &Config::default());
+    let result = execute_pipeline(image, operations, &Config::default(), &get_runtime_handle());
     assert!(result.is_err());
 }

@@ -104,12 +104,12 @@ pub fn watermark_image(
     image: DynamicImage,
     params: &WatermarkImageParams,
     config: &Config,
+    handle: &tokio::runtime::Handle,
 ) -> Result<DynamicImage, (DynamicImage, AppError)> {
     let url = &params.watermark_url;
 
-    // Block on async fetch since this runs in a blocking thread
-    let bytes = match tokio::runtime::Handle::current().block_on(fetch_image_from_url(url, config))
-    {
+    // Block on async fetch using the provided runtime handle
+    let bytes = match handle.block_on(fetch_image_from_url(url, config)) {
         Ok(b) => b,
         Err(e) => return Err((image, e)),
     };

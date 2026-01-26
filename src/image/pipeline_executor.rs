@@ -11,6 +11,7 @@ use image::DynamicImage;
 /// * `image` - The input image to process.
 /// * `operations_spec` - A vector of pipeline operation specifications.
 /// * `config` - Application configuration.
+/// * `handle` - Tokio runtime handle for async operations in blocking context.
 ///
 /// # Returns
 /// * `Ok(DynamicImage)` with the processed image if all operations succeed (or failures are ignored).
@@ -19,13 +20,14 @@ pub fn execute_pipeline(
     mut image: DynamicImage,
     operations_spec: Vec<PipelineOperationSpec>,
     config: &Config,
+    handle: &tokio::runtime::Handle,
 ) -> Result<DynamicImage, AppError> {
     for spec in operations_spec {
         // Log the operation type (variant name)
         let operation_name = format!("{:?}", spec.operation);
         tracing::info!(operation = %operation_name, "Starting operation");
 
-        match execute_single_operation(image, &spec, config) {
+        match execute_single_operation(image, &spec, config, handle) {
             Ok(processed_image) => {
                 tracing::info!(operation = %operation_name, "Operation succeeded");
                 image = processed_image;
@@ -57,6 +59,7 @@ fn execute_single_operation(
     image: DynamicImage,
     spec: &PipelineOperationSpec,
     config: &Config,
+    handle: &tokio::runtime::Handle,
 ) -> Result<DynamicImage, (DynamicImage, AppError)> {
     tracing::info!(operation = ?spec.operation, "Executing single operation");
 
@@ -170,7 +173,7 @@ fn execute_single_operation(
             if let Err(e) = params.validate() {
                 return Err(map_valid_err(image, "WatermarkImage", e));
             }
-            operations::watermark::watermark_image(image, params, config)
+            operations::watermark::watermark_image(image, params, config, handle)
         }
         PipelineOperation::Fit(params) => {
             if let Err(e) = params.validate() {
@@ -219,14 +222,19 @@ mod tests {
         Config::default()
     }
 
+    // Helper to get a runtime handle for tests
+    fn get_runtime_handle() -> tokio::runtime::Handle {
+        tokio::runtime::Handle::current()
+    }
+
     // Helper to convert JSON params to specific operation spec via deserialization
     fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
         PipelineOperationSpec::deserialize(json)
             .expect("Failed to create PipelineOperationSpec from JSON")
     }
 
-    #[test]
-    fn test_successful_pipeline() {
+    #[tokio::test]
+    async fn test_successful_pipeline() {
         let image = create_test_image(100, 100);
         let operations = vec![
             create_op_spec(&json!({
@@ -241,7 +249,7 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(
             result.is_ok(),
             "Pipeline failed at resize or blur: {:?}",
@@ -255,8 +263,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_watermark_pipeline() {
+    #[tokio::test]
+    async fn test_watermark_pipeline() {
         let image = create_test_image(100, 100);
         let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
@@ -272,7 +280,7 @@ mod tests {
             "ignoreFailure": false
         }))];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         if result.is_err() {
             println!("Watermark pipeline error: {:?}", result.as_ref().err());
         }
@@ -285,8 +293,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_pipeline_with_ignored_failures() {
+    #[tokio::test]
+    async fn test_pipeline_with_ignored_failures() {
         let image = create_test_image(100, 100);
         let operations = vec![
             create_op_spec(&json!({
@@ -307,7 +315,7 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(
             result.is_ok(),
             "Pipeline with ignored failures failed: {:?}",
@@ -315,8 +323,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_pipeline_error_handling() {
+    #[tokio::test]
+    async fn test_pipeline_error_handling() {
         let image = create_test_image(100, 100);
         let operations = vec![create_op_spec(&json!({
             "operation": "resize",
@@ -327,15 +335,15 @@ mod tests {
             "ignoreFailure": false
         }))];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(
             result.is_err(),
             "Pipeline error handling did not catch error for invalid resize"
         );
     }
 
-    #[test]
-    fn test_watermark_custom_position_and_color() {
+    #[tokio::test]
+    async fn test_watermark_custom_position_and_color() {
         let image = create_test_image(100, 100);
         let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
@@ -350,7 +358,7 @@ mod tests {
             },
             "ignoreFailure": false
         }))];
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(
             result.is_ok(),
             "Watermark with custom position and color failed: {:?}",
@@ -364,8 +372,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_watermark_invalid_params() {
+    #[tokio::test]
+    async fn test_watermark_invalid_params() {
         let image = create_test_image(100, 100);
         let operations = vec![create_op_spec(&json!({
             "operation": "watermark",
@@ -380,12 +388,12 @@ mod tests {
             },
             "ignoreFailure": false
         }))];
-        let result = execute_pipeline(image.clone(), operations, &default_config());
+        let result = execute_pipeline(image.clone(), operations, &default_config(), &get_runtime_handle());
         assert!(result.is_err(), "Watermark missing text should error");
     }
 
-    #[test]
-    fn test_pipeline_grayscale_watermark_convert() {
+    #[tokio::test]
+    async fn test_pipeline_grayscale_watermark_convert() {
         let image = create_test_image(100, 100);
         let operations = vec![
             create_op_spec(&json!({
@@ -412,7 +420,7 @@ mod tests {
                 "ignoreFailure": false
             })),
         ];
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(
             result.is_ok(),
             "Pipeline grayscale->watermark->convert failed: {:?}",
@@ -426,8 +434,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_execute_single_operation_resize() {
+    #[tokio::test]
+    async fn test_execute_single_operation_resize() {
         let image = create_test_image(100, 100);
         let spec = create_op_spec(&json!({
             "operation": "resize",
@@ -435,14 +443,14 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config());
+        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 75));
     }
 
-    #[test]
-    fn test_execute_single_operation_invalid_resize() {
+    #[tokio::test]
+    async fn test_execute_single_operation_invalid_resize() {
         let image = create_test_image(100, 100);
         let spec = create_op_spec(&json!({
             "operation": "resize",
@@ -450,26 +458,26 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config());
+        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_err());
         let (returned_image, _err) = result.err().unwrap();
         assert_eq!(returned_image.dimensions(), (100, 100));
     }
 
-    #[test]
-    fn test_execute_single_operation_grayscale() {
+    #[tokio::test]
+    async fn test_execute_single_operation_grayscale() {
         let image = create_test_image(100, 100);
         let spec = create_op_spec(&json!({
             "operation": "grayscale",
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config());
+        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_complex_pipeline_multiple_operations() {
+    #[tokio::test]
+    async fn test_complex_pipeline_multiple_operations() {
         let image = create_test_image(200, 200);
         let operations = vec![
             create_op_spec(&json!({
@@ -498,12 +506,12 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(result.is_ok(), "Complex pipeline failed: {:?}", result);
     }
 
-    #[test]
-    fn test_pipeline_new_operations() {
+    #[tokio::test]
+    async fn test_pipeline_new_operations() {
         let image = create_test_image(100, 50);
         let operations = vec![
             create_op_spec(&json!({
@@ -527,14 +535,14 @@ mod tests {
             })),
         ];
 
-        let result = execute_pipeline(image, operations, &default_config());
+        let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
         assert!(result.is_ok(), "Pipeline with new operations failed: {:?}", result);
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (25, 25));
     }
 
-    #[test]
-    fn test_execute_single_operation_convert_failure() {
+    #[tokio::test]
+    async fn test_execute_single_operation_convert_failure() {
         let image = create_test_image(100, 100);
         let spec = create_op_spec(&json!({
             "operation": "convert",
@@ -544,7 +552,7 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config());
+        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_err());
         let (returned_image, _) = result.err().unwrap();
         assert_eq!(returned_image.dimensions(), (100, 100));

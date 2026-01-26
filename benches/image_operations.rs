@@ -239,6 +239,8 @@ fn bench_format_conversion(c: &mut Criterion) {
 // Benchmark complete pipeline operations
 fn bench_pipeline(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_operations");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let img = create_test_image(1200, 800);
     
@@ -291,6 +293,7 @@ fn bench_pipeline(c: &mut Criterion) {
                 black_box(img.clone()),
                 black_box(simple_ops.clone()),
                 &Config::default(),
+                handle,
             ))
         })
     });
@@ -301,6 +304,7 @@ fn bench_pipeline(c: &mut Criterion) {
                 black_box(img.clone()),
                 black_box(complex_ops.clone()),
                 &Config::default(),
+                handle,
             ))
         })
     });

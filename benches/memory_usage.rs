@@ -22,7 +22,9 @@ fn create_test_image(width: u32, height: u32) -> DynamicImage {
 // Benchmark memory usage for different image sizes
 fn bench_memory_by_image_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_by_image_size");
-    
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
+
     let sizes = vec![
         (200, 150, "tiny"),
         (640, 480, "small"),
@@ -56,6 +58,7 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
                         black_box(img.clone()),
                         black_box(operations.clone()),
                         &Config::default(),
+                        handle,
                     ))
                 })
             },
@@ -68,6 +71,8 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
 // Benchmark memory usage for different operation counts
 fn bench_memory_by_operation_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_by_operation_count");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let img = create_test_image(800, 600);
     
@@ -135,6 +140,7 @@ fn bench_memory_by_operation_count(c: &mut Criterion) {
                         black_box(img.clone()),
                         black_box(ops.clone()),
                         &Config::default(),
+                        handle,
                     ))
                 })
             },
@@ -147,6 +153,8 @@ fn bench_memory_by_operation_count(c: &mut Criterion) {
 // Benchmark memory usage patterns for different formats
 fn bench_memory_by_format(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_by_format");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let img = create_test_image(1000, 750);
     
@@ -177,6 +185,7 @@ fn bench_memory_by_format(c: &mut Criterion) {
                         black_box(img.clone()),
                         black_box(ops.clone()),
                         &Config::default(),
+                        handle,
                     ))
                 })
             },
@@ -189,6 +198,8 @@ fn bench_memory_by_format(c: &mut Criterion) {
 // Benchmark memory efficiency of image cloning vs references
 fn bench_memory_cloning_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_cloning_patterns");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let handle = rt.handle();
     
     let img = create_test_image(800, 600);
     let img_arc = Arc::new(img.clone());
@@ -213,6 +224,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
                 black_box(img.clone()),
                 black_box(operations.clone()),
                 &Config::default(),
+                handle,
             ))
         })
     });
@@ -227,6 +239,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
                 black_box(img_clone),
                 black_box(operations.clone()),
                 &Config::default(),
+                handle,
             ))
         })
     });
@@ -266,7 +279,9 @@ fn bench_memory_concurrent_load(c: &mut Criterion) {
                             let ops = operations.clone();
                             
                             thread::spawn(move || {
-                                execute_pipeline(img, ops, &Config::default())
+                                let rt = tokio::runtime::Runtime::new().unwrap();
+                                let handle = rt.handle();
+                                execute_pipeline(img, ops, &Config::default(), handle)
                             })
                         })
                         .collect();

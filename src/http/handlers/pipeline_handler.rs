@@ -109,11 +109,12 @@ pub async fn process_pipeline(
     }
 
     let config_clone = config.clone();
+    let handle = tokio::runtime::Handle::current();
     let final_image_bytes = tokio::task::spawn_blocking(move || {
         let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
             .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
 
-        let processed_image = execute_pipeline(dynamic_image, operations_spec, &config_clone)?;
+        let processed_image = execute_pipeline(dynamic_image, operations_spec, &config_clone, &handle)?;
 
         let mut bytes = Vec::new();
         processed_image
