@@ -197,6 +197,47 @@ pub fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<Pa
     get_cached_result(image_path.to_path_buf(), operation, params)
 }
 
+pub fn calculate_hash_from_memory(
+    image_data: &[u8],
+    operation: &str,
+    params: &str,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(image_data);
+    hasher.update(operation.as_bytes());
+    hasher.update(params.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+pub async fn get_cached_path(hash: &str) -> Option<PathBuf> {
+    let temp_dir = default_temp_dir_path();
+    let cache_path = temp_dir.join(format!("{}.img", hash));
+
+    if tokio_fs::metadata(&cache_path).await.is_ok() {
+        Some(cache_path)
+    } else {
+        None
+    }
+}
+
+pub async fn save_buffer_to_cache(hash: &str, data: &[u8]) -> Result<()> {
+    let temp_dir = default_temp_dir_path();
+    if tokio_fs::metadata(&temp_dir).await.is_err() {
+        tokio_fs::create_dir_all(&temp_dir).await?;
+    }
+
+    let cache_filename = format!("{}.img", hash);
+    let cache_path = temp_dir.join(&cache_filename);
+    let temp_path = temp_dir.join(format!("{}.tmp", cache_filename));
+
+    // Write to temp file first
+    tokio_fs::write(&temp_path, data).await?;
+
+    // Atomically rename
+    tokio_fs::rename(&temp_path, &cache_path).await?;
+    Ok(())
+}
+
 // Cleanup old cache entries
 #[allow(dead_code)] // For future cache management features
 pub fn cleanup_old_cache(temp_dir: &PathBuf, max_age: std::time::Duration) -> Result<()> {
@@ -219,7 +260,7 @@ fn default_temp_dir() -> String {
     "temp".to_string()
 }
 
-fn default_temp_dir_path() -> PathBuf {
+pub(crate) fn default_temp_dir_path() -> PathBuf {
     PathBuf::from("temp")
 }
 

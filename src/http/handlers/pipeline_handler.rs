@@ -67,6 +67,47 @@ pub async fn process_pipeline(
     let output_format = determine_output_format(&operations_spec, original_format);
     let content_type = output_format.to_mime_type();
 
+    // Calculate hash for caching
+    let ops_string = serde_json::to_string(&operations_spec).unwrap_or_else(|_| "".to_string());
+
+    // Perform hashing in a blocking task to avoid stalling the async runtime
+    let image_bytes_for_hash = image_bytes.clone();
+    let ops_string_for_hash = ops_string.clone();
+    let hash = tokio::task::spawn_blocking(move || {
+        crate::storage::calculate_hash_from_memory(
+            &image_bytes_for_hash,
+            "pipeline",
+            &ops_string_for_hash,
+        )
+    })
+    .await
+    .map_err(|e| AppError::InternalServerError(format!("Hash calculation task failed: {}", e)))?;
+
+    let mut response_builder = Response::builder().header("Content-Type", content_type);
+
+    match method {
+        Method::GET | Method::HEAD => {
+            response_builder =
+                response_builder.header("Cache-Control", "public, max-age=31536000, immutable");
+        }
+        Method::POST => {
+            response_builder = response_builder.header("Cache-Control", "no-store");
+        }
+        _ => {}
+    }
+
+    // Check cache (async)
+    if let Some(path) = crate::storage::get_cached_path(&hash).await {
+        if let Ok(cached_bytes) = tokio::fs::read(&path).await {
+            return response_builder
+                .header("X-Cache", "HIT")
+                .body(axum::body::Body::from(cached_bytes))
+                .map_err(|e| {
+                    AppError::InternalServerError(format!("Failed to build response: {}", e))
+                });
+        }
+    }
+
     let final_image_bytes = tokio::task::spawn_blocking(move || {
         let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
             .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
@@ -84,20 +125,17 @@ pub async fn process_pipeline(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Image processing task failed: {}", e)))??;
 
-    let mut response_builder = Response::builder().header("Content-Type", content_type);
-
-    match method {
-        Method::GET | Method::HEAD => {
-            response_builder =
-                response_builder.header("Cache-Control", "public, max-age=31536000, immutable");
+    // Save to cache (async)
+    let hash_clone = hash.clone();
+    let bytes_for_cache = Bytes::from(final_image_bytes.clone());
+    tokio::spawn(async move {
+        if let Err(e) = crate::storage::save_buffer_to_cache(&hash_clone, &bytes_for_cache).await {
+            tracing::error!("Failed to save to cache: {}", e);
         }
-        Method::POST => {
-            response_builder = response_builder.header("Cache-Control", "no-store");
-        }
-        _ => {}
-    }
+    });
 
     response_builder
+        .header("X-Cache", "MISS")
         .body(axum::body::Body::from(final_image_bytes))
         .map_err(|e| AppError::InternalServerError(format!("Failed to build response: {}", e)))
 }
