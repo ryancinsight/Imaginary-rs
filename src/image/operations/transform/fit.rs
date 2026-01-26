@@ -28,11 +28,8 @@ pub fn fit(image: DynamicImage, params: &FitParams) -> Result<DynamicImage, (Dyn
     // Convert ResizeFilter to image::imageops::FilterType
     let filter = imageops::FilterType::from(&params.filter);
 
-    // Resize using image::imageops
-    // Note: This converts the image to RGBA8 format as imageops::resize returns an ImageBuffer
-    // compatible with the GenericImageView input, but typically we want consistent RGBA output for padding.
-    let resized_buffer = imageops::resize(&image, new_w, new_h, filter);
-    let resized = DynamicImage::ImageRgba8(resized_buffer);
+    // Resize using DynamicImage::resize which handles pixel types correctly
+    let resized = image.resize(new_w, new_h, filter);
 
     // If dimensions match target exactly, return the resized image
     // (This only happens if aspect ratios match AND no padding is needed)
@@ -55,6 +52,7 @@ pub fn fit(image: DynamicImage, params: &FitParams) -> Result<DynamicImage, (Dyn
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::image::params::ResizeFilter;
     use image::{ImageBuffer, Rgba};
 
     fn create_test_image(width: u32, height: u32) -> DynamicImage {
