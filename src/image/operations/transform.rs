@@ -308,16 +308,29 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     let h_plus_1 = (img_h + 1) as usize;
     let mut integral = vec![0u64; w_plus_1 * h_plus_1];
 
+    // Optimize: Access raw buffer directly to avoid bounds checks in inner loop
+    let raw_gradients = gradients.as_raw();
+    let mut grad_iter = raw_gradients.iter();
+
     for y in 0..img_h {
         let mut row_sum = 0u64;
+
+        let row_offset = (y + 1) as usize * w_plus_1;
+        let prev_row_offset = y as usize * w_plus_1;
+
         for x in 0..img_w {
-            let val = gradients.get_pixel(x, y)[0] as u64;
+            // We can safely unwrap here because the loop bounds match the image dimensions
+            // and we're iterating over the raw buffer which corresponds exactly to these dimensions.
+            let val = unsafe { *grad_iter.next().unwrap_unchecked() } as u64;
             row_sum += val;
 
-            let i = (y + 1) as usize * w_plus_1 + (x + 1) as usize;
-            let i_prev = y as usize * w_plus_1 + (x + 1) as usize;
+            let x_plus_1 = (x + 1) as usize;
+            let i = row_offset + x_plus_1;
+            let i_prev = prev_row_offset + x_plus_1;
 
-            integral[i] = integral[i_prev] + row_sum;
+            unsafe {
+                *integral.get_unchecked_mut(i) = *integral.get_unchecked(i_prev) + row_sum;
+            }
         }
     }
 
