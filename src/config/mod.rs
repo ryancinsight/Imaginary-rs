@@ -83,6 +83,8 @@ allowed_origins = ["*"]
 [storage]
 temp_dir = "temp"
 max_cache_size = 1073741824
+cache_cleanup_interval = 3600
+cache_max_age = 86400
 
 [data]
 value = "example data"
@@ -185,6 +187,30 @@ fn override_with_cli_args(config: &mut Value, matches: &ArgMatches) -> Result<()
             ));
         }
         config["storage"]["max_cache_size"] = Value::Integer(cache_size_val);
+    }
+    if let Some(cleanup_interval) = matches.get_one::<String>("cache-cleanup-interval") {
+        let interval_val = cleanup_interval
+            .parse::<i64>()
+            .map_err(|_| format!("Invalid cache cleanup interval value: {}", cleanup_interval))?;
+        if interval_val < 1 {
+            return Err(format!(
+                "Cache cleanup interval must be positive, got: {}",
+                interval_val
+            ));
+        }
+        config["storage"]["cache_cleanup_interval"] = Value::Integer(interval_val);
+    }
+    if let Some(max_age) = matches.get_one::<String>("cache-max-age") {
+        let max_age_val = max_age
+            .parse::<i64>()
+            .map_err(|_| format!("Invalid cache max age value: {}", max_age))?;
+        if max_age_val < 1 {
+            return Err(format!(
+                "Cache max age must be positive, got: {}",
+                max_age_val
+            ));
+        }
+        config["storage"]["cache_max_age"] = Value::Integer(max_age_val);
     }
     Ok(())
 }

@@ -10,7 +10,7 @@ use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
 use tracing::info;
 
-#[derive(Debug, Default, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Debug, Default, Clone, Deserialize, Archive, RkyvDeserialize, RkyvSerialize)]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
 pub struct StorageConfig {
@@ -19,6 +19,10 @@ pub struct StorageConfig {
     #[serde(default = "default_max_cache_size")]
     #[allow(dead_code)]
     pub max_cache_size: usize,
+    #[serde(default = "default_cache_cleanup_interval")]
+    pub cache_cleanup_interval: u64, // seconds
+    #[serde(default = "default_cache_max_age")]
+    pub cache_max_age: u64, // seconds
 }
 
 #[allow(dead_code)] // For future cache management features
@@ -221,4 +225,40 @@ fn default_temp_dir_path() -> PathBuf {
 
 fn default_max_cache_size() -> usize {
     1024 * 1024 * 1024 // 1GB
+}
+
+fn default_cache_cleanup_interval() -> u64 {
+    3600 // 1 hour
+}
+
+fn default_cache_max_age() -> u64 {
+    86400 // 24 hours
+}
+
+pub fn start_cache_cleanup_task(config: StorageConfig) {
+    tokio::spawn(async move {
+        let interval_duration = std::time::Duration::from_secs(config.cache_cleanup_interval);
+        let max_age_duration = std::time::Duration::from_secs(config.cache_max_age);
+        let temp_dir = PathBuf::from(config.temp_dir);
+
+        // skip first tick
+        let mut interval = tokio::time::interval(interval_duration);
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+            info!("Starting cache cleanup...");
+            let temp_dir_clone = temp_dir.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                cleanup_old_cache(&temp_dir_clone, max_age_duration)
+            })
+            .await;
+
+            match result {
+                Ok(Ok(_)) => info!("Cache cleanup completed successfully."),
+                Ok(Err(e)) => tracing::error!("Cache cleanup failed: {}", e),
+                Err(e) => tracing::error!("Cache cleanup task panicked: {}", e),
+            }
+        }
+    });
 }

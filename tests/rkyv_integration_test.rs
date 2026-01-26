@@ -68,6 +68,8 @@ fn test_storage_config_serialization() {
     let config = StorageConfig {
         temp_dir: "/tmp/imaginary".to_string(),
         max_cache_size: 1024,
+        cache_cleanup_interval: 3600,
+        cache_max_age: 86400,
     };
 
     // Serialize
@@ -78,4 +80,6 @@ fn test_storage_config_serialization() {
 
     assert_eq!(config.temp_dir, deserialized.temp_dir);
     assert_eq!(config.max_cache_size, deserialized.max_cache_size);
+    assert_eq!(config.cache_cleanup_interval, deserialized.cache_cleanup_interval);
+    assert_eq!(config.cache_max_age, deserialized.cache_max_age);
 }
