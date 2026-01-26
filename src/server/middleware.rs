@@ -33,19 +33,11 @@ pub async fn log_request_and_errors(
     response
 }
 
-#[allow(dead_code)] // For future authentication middleware
 pub async fn authenticate(
+    axum::extract::State(config): axum::extract::State<Arc<Config>>,
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Response<axum::body::Body> {
-    let config = match req.extensions().get::<Arc<Config>>() {
-        Some(config) => config,
-        None => {
-            return AppError::InternalServerError("Configuration not found".to_string())
-                .into_response()
-        }
-    };
-
     // Allow the request to proceed if the API key is not set
     if let Some(api_key) = config.security.key() {
         if !api_key.is_empty() {
