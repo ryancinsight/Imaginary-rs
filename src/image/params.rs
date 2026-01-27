@@ -434,6 +434,30 @@ pub struct WatermarkImageParams {
 }
 
 impl Validate for WatermarkImageParams {
+    /// Validates the watermark image parameters for correctness.
+    ///
+    /// Checks that opacity is between 0.0 and 1.0, the watermark URL is non-empty and
+    /// begins with "http://" or "https://", and that an optional scale (if provided)
+    /// is greater than 0.0.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if all parameters are valid, `Err(ImageError)` describing the first
+    /// invalid parameter otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let params = WatermarkImageParams {
+    ///     watermark_url: "https://example.com/wm.png".to_string(),
+    ///     opacity: 0.5,
+    ///     position: WatermarkPosition::Center,
+    ///     scale: Some(1.0),
+    ///     x_offset: None,
+    ///     y_offset: None,
+    /// };
+    /// assert!(params.validate().is_ok());
+    /// ```
     fn validate(&self) -> Result<(), ImageError> {
         if self.opacity < 0.0 || self.opacity > 1.0 {
             return Err(ImageError::InvalidOpacity(
@@ -491,6 +515,14 @@ pub enum ExtendBackground {
 }
 
 impl Default for ExtendBackground {
+    /// Provides the default extend background of opaque black.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let bg = ExtendBackground::default();
+    /// assert_eq!(bg, ExtendBackground::Color([0, 0, 0, 255]));
+    /// ```
     fn default() -> Self {
         ExtendBackground::Color([0, 0, 0, 255])
     }
@@ -515,6 +547,22 @@ pub struct ExtendParams {
 }
 
 impl Validate for ExtendParams {
+    /// Validates that the extend dimensions are greater than zero.
+    ///
+    /// Returns `Ok(())` if both `width` and `height` are greater than 0, otherwise returns
+    /// `ImageError::InvalidDimensions`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let params = ExtendParams {
+    ///     width: 10,
+    ///     height: 20,
+    ///     background: ExtendBackground::default(),
+    ///     gravity: Gravity::Center,
+    /// };
+    /// assert!(params.validate().is_ok());
+    /// ```
     fn validate(&self) -> Result<(), ImageError> {
         if self.width == 0 || self.height == 0 {
             return Err(ImageError::InvalidDimensions(
