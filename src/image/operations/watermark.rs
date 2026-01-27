@@ -9,6 +9,7 @@ use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosit
 use ab_glyph::{FontRef, PxScale};
 use image::{DynamicImage, GenericImageView, Rgba};
 use imageproc::drawing::{draw_text_mut, text_size};
+use rayon::prelude::*;
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -151,9 +152,9 @@ fn apply_watermark(
 
     // Apply opacity
     if params.opacity < 1.0 {
-        for pixel in watermark.pixels_mut() {
+        watermark.par_chunks_mut(4).for_each(|pixel| {
             pixel[3] = (pixel[3] as f32 * params.opacity) as u8;
-        }
+        });
     }
 
     // Calculate position
