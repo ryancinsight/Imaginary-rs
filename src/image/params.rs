@@ -434,6 +434,30 @@ pub struct WatermarkImageParams {
 }
 
 impl Validate for WatermarkImageParams {
+    /// Validates the watermark image parameters for correctness.
+    ///
+    /// Checks that opacity is between 0.0 and 1.0, the watermark URL is non-empty and
+    /// begins with "http://" or "https://", and that an optional scale (if provided)
+    /// is greater than 0.0.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if all parameters are valid, `Err(ImageError)` describing the first
+    /// invalid parameter otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let params = WatermarkImageParams {
+    ///     watermark_url: "https://example.com/wm.png".to_string(),
+    ///     opacity: 0.5,
+    ///     position: WatermarkPosition::Center,
+    ///     scale: Some(1.0),
+    ///     x_offset: None,
+    ///     y_offset: None,
+    /// };
+    /// assert!(params.validate().is_ok());
+    /// ```
     fn validate(&self) -> Result<(), ImageError> {
         if self.opacity < 0.0 || self.opacity > 1.0 {
             return Err(ImageError::InvalidOpacity(
@@ -456,6 +480,94 @@ impl Validate for WatermarkImageParams {
                     "Scale must be positive".to_string(),
                 ));
             }
+        }
+        Ok(())
+    }
+}
+
+/// Position relative to the image canvas.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
+pub enum Gravity {
+    #[default]
+    Center,
+    North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+    NorthWest,
+}
+
+/// Background type for extending the image.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[serde(tag = "type", content = "value")]
+#[serde(rename_all = "camelCase")]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
+pub enum ExtendBackground {
+    Color([u8; 4]),
+    Mirror,
+    CopyEdges,
+}
+
+impl Default for ExtendBackground {
+    /// Provides the default extend background of opaque black.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let bg = ExtendBackground::default();
+    /// assert_eq!(bg, ExtendBackground::Color([0, 0, 0, 255]));
+    /// ```
+    fn default() -> Self {
+        ExtendBackground::Color([0, 0, 0, 255])
+    }
+}
+
+/// Parameters for extending the image canvas.
+/// - width, height: target size (must be > 0)
+/// - background: background filling mode (default black)
+/// - gravity: position of the image (default Center)
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
+pub struct ExtendParams {
+    #[serde(default = "default_dimension")]
+    pub width: u32,
+    #[serde(default = "default_dimension")]
+    pub height: u32,
+    #[serde(default)]
+    pub background: ExtendBackground,
+    #[serde(default)]
+    pub gravity: Gravity,
+}
+
+impl Validate for ExtendParams {
+    /// Validates that the extend dimensions are greater than zero.
+    ///
+    /// Returns `Ok(())` if both `width` and `height` are greater than 0, otherwise returns
+    /// `ImageError::InvalidDimensions`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let params = ExtendParams {
+    ///     width: 10,
+    ///     height: 20,
+    ///     background: ExtendBackground::default(),
+    ///     gravity: Gravity::Center,
+    /// };
+    /// assert!(params.validate().is_ok());
+    /// ```
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(ImageError::InvalidDimensions(
+                "Width and height must be > 0".to_string(),
+            ));
         }
         Ok(())
     }

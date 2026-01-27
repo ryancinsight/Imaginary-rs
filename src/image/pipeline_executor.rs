@@ -55,6 +55,32 @@ pub fn execute_pipeline(
     Ok(image)
 }
 
+/// Execute a single pipeline operation on a DynamicImage.
+///
+/// Validates operation parameters when applicable and dispatches to the corresponding image
+/// operation. On success returns the processed image. On failure returns a tuple containing an
+/// image (the image state to continue pipeline execution with) and an AppError describing the
+/// failure or validation error.
+///
+/// # Returns
+///
+/// `Ok(processed_image)` on success; `Err((image, AppError))` when the operation fails or its
+/// parameters are invalid. The returned image in `Err` is the image that should be used by the
+/// caller (for example, when the pipeline is configured to continue after a failed operation).
+///
+/// # Examples
+///
+/// ```ignore
+/// use image::DynamicImage;
+/// // `spec` is a previously constructed PipelineOperationSpec.
+/// // `config` and `handle` are available in the current context.
+/// let img: DynamicImage = /* existing image */ unimplemented!();
+/// let result = execute_single_operation(img, &spec, &config, &handle);
+/// match result {
+///     Ok(processed) => { /* use processed image */ }
+///     Err((fallback_img, err)) => { /* handle error, use fallback_img */ }
+/// }
+/// ```
 fn execute_single_operation(
     image: DynamicImage,
     spec: &PipelineOperationSpec,
@@ -89,6 +115,12 @@ fn execute_single_operation(
                 return Err(map_valid_err(image, "Embed", e));
             }
             Ok(operations::embed(image, params))
+        }
+        PipelineOperation::Extend(params) => {
+            if let Err(e) = params.validate() {
+                return Err(map_valid_err(image, "Extend", e));
+            }
+            Ok(operations::extend(image, params))
         }
         PipelineOperation::Crop(params) => {
             if let Err(e) = params.validate() {
