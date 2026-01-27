@@ -47,6 +47,7 @@ pub enum PipelineOperation {
     Fill(FillParams),
     Gamma(GammaParams),
     Enlarge(ResizeParams),
+    Trim(TrimParams),
 
     // Operations without parameters
     Grayscale,
