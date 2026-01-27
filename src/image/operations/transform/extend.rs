@@ -1,10 +1,36 @@
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use crate::image::params::{ExtendParams, ExtendBackground, Gravity, Validate};
 
-/// Extend the image canvas to the given dimensions.
+/// Extend or crop an image to the specified dimensions, positioning the original content according to `Gravity`.
 ///
-/// If the image is larger than the target dimensions, it will be cropped based on gravity.
-/// If smaller, it will be padded.
+/// If the target size is larger than the source, the function pads the canvas using the chosen `ExtendBackground`:
+/// - `Color(c)`: fills the canvas with `c` and places the source image at the computed offset.
+/// - `Mirror`: fills the canvas by reflecting source pixels across the borders (BORDER_REFLECT-style).
+/// - `CopyEdges`: fills the canvas by repeating the nearest edge pixels of the source.
+///
+/// If the target size is smaller than the source, the source image is cropped according to `Gravity`.
+///
+/// # Returns
+///
+/// A new `DynamicImage::ImageRgba8` containing the extended or cropped image.
+///
+/// # Examples
+///
+/// ```
+/// use image::DynamicImage;
+/// use crate::image::params::{ExtendParams, ExtendBackground, Gravity};
+///
+/// let src = DynamicImage::new_rgba8(10, 10);
+/// let params = ExtendParams {
+///     width: 20,
+///     height: 20,
+///     gravity: Gravity::Center,
+///     background: ExtendBackground::Color([0, 0, 0, 255]),
+/// };
+///
+/// let out = extend(src, &params);
+/// assert_eq!(out.dimensions(), (20, 20));
+/// ```
 pub fn extend(image: DynamicImage, params: &ExtendParams) -> DynamicImage {
     params.validate().expect("Invalid extend params");
 
@@ -79,7 +105,37 @@ pub fn extend(image: DynamicImage, params: &ExtendParams) -> DynamicImage {
     DynamicImage::ImageRgba8(new_img)
 }
 
-/// Helper to reflect coordinate for Mirror mode (BORDER_REFLECT style)
+/// Map an integer coordinate into the range [0, max-1] using BORDER_REFLECT-style reflection.
+
+///
+
+/// If `max <= 1`, always returns `0`. Otherwise, the input `val` is reflected across the
+
+/// interval boundaries until it lies within `[0, max - 1]`.
+
+///
+
+/// # Examples
+
+///
+
+/// ```
+
+/// assert_eq!(reflect(-1, 5), 0); // -1 reflects to 0
+
+/// assert_eq!(reflect(0, 5), 0);
+
+/// assert_eq!(reflect(4, 5), 4);
+
+/// assert_eq!(reflect(5, 5), 3); // 5 reflects to 3
+
+/// assert_eq!(reflect(6, 5), 2); // 6 reflects to 2
+
+/// assert_eq!(reflect(0, 1), 0); // max == 1 always returns 0
+
+/// assert_eq!(reflect(10, 0), 0); // max <= 0 always returns 0
+
+/// ```
 fn reflect(mut val: i64, max: i64) -> i64 {
     if max <= 0 { return 0; }
     if max == 1 { return 0; }
@@ -99,6 +155,18 @@ mod tests {
     use super::*;
     use image::{Rgba, ImageBuffer};
 
+    /// Creates a test RGBA image of the given width and height with a simple gradient.
+    ///
+    /// The pixel at (x, y) will have the value `Rgba([x as u8, y as u8, 0, 255])`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let img = create_test_image(2, 3);
+    /// let rgba = img.to_rgba8();
+    /// assert_eq!(rgba.get_pixel(0, 0).0, [0, 0, 0, 255]);
+    /// assert_eq!(rgba.get_pixel(1, 2).0, [1, 2, 0, 255]);
+    /// ```
     fn create_test_image(w: u32, h: u32) -> DynamicImage {
         let mut img = ImageBuffer::new(w, h);
         for (x, y, pixel) in img.enumerate_pixels_mut() {
@@ -141,6 +209,27 @@ mod tests {
         assert_eq!(res.get_pixel(1, 1), Rgba([0, 0, 0, 255]));
     }
 
+    /// Verifies that `ExtendBackground::Mirror` reflects source pixels into the extended canvas.
+    ///
+    /// Confirms BORDER_REFLECT-style mapping for out-of-bounds destination coordinates by
+    /// checking that pixels outside the source area are read from reflected source positions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Creates a 10x10 test image, extends it to 12x12 with Mirror background and Center gravity,
+    /// // and asserts that out-of-bounds pixels correspond to reflected source pixels.
+    /// let img = create_test_image(10, 10);
+    /// let params = ExtendParams {
+    ///     width: 12,
+    ///     height: 12,
+    ///     background: ExtendBackground::Mirror,
+    ///     gravity: Gravity::Center, // Offset 1,1
+    /// };
+    /// let res = extend(img, &params);
+    /// assert_eq!(res.get_pixel(0, 1), Rgba([0, 0, 0, 255])); // reflects to source(0,0)
+    /// assert_eq!(res.get_pixel(11, 10), Rgba([8, 9, 0, 255])); // reflects to source(8,9)
+    /// ```
     #[test]
     fn test_extend_mirror() {
         let img = create_test_image(10, 10);
