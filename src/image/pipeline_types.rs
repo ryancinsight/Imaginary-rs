@@ -35,6 +35,7 @@ pub enum PipelineOperation {
     Watermark(WatermarkParams),
     WatermarkImage(WatermarkImageParams),
     Embed(EmbedParams),
+    Extend(ExtendParams),
     Convert(FormatConversionParams),
     SmartCrop(SmartCropParams),
     AdjustBrightness(AdjustBrightnessParams),

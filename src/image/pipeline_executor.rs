@@ -90,6 +90,12 @@ fn execute_single_operation(
             }
             Ok(operations::embed(image, params))
         }
+        PipelineOperation::Extend(params) => {
+            if let Err(e) = params.validate() {
+                return Err(map_valid_err(image, "Extend", e));
+            }
+            Ok(operations::extend(image, params))
+        }
         PipelineOperation::Crop(params) => {
             if let Err(e) = params.validate() {
                 return Err(map_valid_err(image, "Crop", e));

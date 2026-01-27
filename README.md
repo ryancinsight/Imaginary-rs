@@ -32,6 +32,7 @@ A Rust implementation of the [h2non/imaginary](https://github.com/h2non/imaginar
 - `adjustContrast`: Adjust contrast (params: `value`)
 - `sharpen`: Sharpen image (no params)
 - `convert`: Change format (params: `format`, `quality`)
+- `extend`: Extend image canvas (params: `width`, `height`, `background`, `gravity`)
 - ...and more (see code for full list)
 
 ## API Endpoints
@@ -95,7 +96,7 @@ Imaginary-rs organizes all image processing operations into a deep, maintainable
 
 | Module      | Public Operations (re-exported at top level)                                         |
 |-------------|--------------------------------------------------------------------------------------|
-| `transform` | `resize`, `rotate`, `crop`, `flip_horizontal`, `flip_vertical`, `enlarge`, `extract`, `zoom`, `smart_crop`, `thumbnail` |
+| `transform` | `resize`, `rotate`, `crop`, `flip_horizontal`, `flip_vertical`, `enlarge`, `extend`, `extract`, `zoom`, `smart_crop`, `thumbnail` |
 | `color`     | `grayscale`, `blur`, `adjust_brightness`, `adjust_contrast`, `sharpen`               |
 | `format`    | `convert_format`, `autorotate`                                                       |
 | `watermark` | `watermark`                                                                          |

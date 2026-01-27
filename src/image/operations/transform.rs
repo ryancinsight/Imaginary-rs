@@ -40,6 +40,8 @@ impl From<&ResizeFilter> for FilterType {
 
 pub mod fit;
 pub use fit::fit;
+pub mod extend;
+pub use extend::extend;
 
 /// Helper function to perform resizing using fast_image_resize.
 /// This attempts to preserve the pixel format to avoid unnecessary conversions.
