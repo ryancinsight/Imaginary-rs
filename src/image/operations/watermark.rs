@@ -9,6 +9,15 @@ use crate::image::params::{WatermarkImageParams, WatermarkParams, WatermarkPosit
 use ab_glyph::{FontRef, PxScale};
 use image::{DynamicImage, GenericImageView, Rgba};
 use imageproc::drawing::{draw_text_mut, text_size};
+use once_cell::sync::Lazy;
+
+static FONT: Lazy<Option<FontRef<'static>>> = Lazy::new(|| {
+    let font_data = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/fonts/DejaVuSans.ttf"
+    ));
+    FontRef::try_from_slice(font_data).ok()
+});
 
 /// Applies a text watermark to the image with the specified parameters.
 /// Supports automatic positioning or exact coordinates, opacity, and font customization.
@@ -40,14 +49,9 @@ pub fn watermark(
     image: DynamicImage,
     params: &WatermarkParams,
 ) -> Result<DynamicImage, (DynamicImage, String)> {
-    // Load the font data from a byte array
-    let font_data = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/fonts/DejaVuSans.ttf"
-    ));
-    let font = match FontRef::try_from_slice(font_data) {
-        Ok(f) => f,
-        Err(_) => return Err((image, "Failed to load font".to_string())),
+    let font = match FONT.as_ref() {
+        Some(f) => f,
+        None => return Err((image, "Failed to load font".to_string())),
     };
 
     // Always operate on RGBA8
@@ -62,7 +66,7 @@ pub fn watermark(
     ]);
 
     // Measure text width/height
-    let (glyphs_width, glyphs_height) = text_size(scale, &font, &params.text);
+    let (glyphs_width, glyphs_height) = text_size(scale, font, &params.text);
 
     let margin = 10u32;
     let (width, height) = rgba_image.dimensions();
@@ -92,7 +96,7 @@ pub fn watermark(
         x as i32,
         y as i32,
         scale,
-        &font,
+        font,
         &params.text,
     );
 
