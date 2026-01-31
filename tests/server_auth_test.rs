@@ -25,7 +25,9 @@ async fn test_auth_no_key_configured() {
 #[tokio::test]
 async fn test_auth_missing_header() {
     let mut config = Config::default();
-    config.security.set_key(ApiKey::from("supersecretkey".to_string()));
+    config
+        .security
+        .set_key(ApiKey::from("supersecretkey".to_string()));
     let config = Arc::new(config);
     let app = create_router(config);
 
@@ -41,7 +43,9 @@ async fn test_auth_missing_header() {
 #[tokio::test]
 async fn test_auth_wrong_header() {
     let mut config = Config::default();
-    config.security.set_key(ApiKey::from("supersecretkey".to_string()));
+    config
+        .security
+        .set_key(ApiKey::from("supersecretkey".to_string()));
     let config = Arc::new(config);
     let app = create_router(config);
 
@@ -58,7 +62,9 @@ async fn test_auth_wrong_header() {
 #[tokio::test]
 async fn test_auth_correct_header() {
     let mut config = Config::default();
-    config.security.set_key(ApiKey::from("supersecretkey".to_string()));
+    config
+        .security
+        .set_key(ApiKey::from("supersecretkey".to_string()));
     let config = Arc::new(config);
     let app = create_router(config);
 

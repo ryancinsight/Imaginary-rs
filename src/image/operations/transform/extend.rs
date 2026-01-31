@@ -1,5 +1,5 @@
+use crate::image::params::{ExtendBackground, ExtendParams, Gravity, Validate};
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
-use crate::image::params::{ExtendParams, ExtendBackground, Gravity, Validate};
 
 /// Extend or crop an image to the specified dimensions, positioning the original content according to `Gravity`.
 ///
@@ -17,8 +17,9 @@ use crate::image::params::{ExtendParams, ExtendBackground, Gravity, Validate};
 /// # Examples
 ///
 /// ```
-/// use image::DynamicImage;
-/// use crate::image::params::{ExtendParams, ExtendBackground, Gravity};
+/// use image::{DynamicImage, GenericImageView};
+/// use imaginary::image::params::{ExtendParams, ExtendBackground, Gravity};
+/// use imaginary::image::operations::transform::extend::extend;
 ///
 /// let src = DynamicImage::new_rgba8(10, 10);
 /// let params = ExtendParams {
@@ -120,7 +121,7 @@ pub fn extend(image: DynamicImage, params: &ExtendParams) -> DynamicImage {
 ///
 
 /// ```
-
+/// use imaginary::image::operations::transform::extend::reflect;
 /// assert_eq!(reflect(-1, 5), 0); // -1 reflects to 0
 
 /// assert_eq!(reflect(0, 5), 0);
@@ -136,15 +137,19 @@ pub fn extend(image: DynamicImage, params: &ExtendParams) -> DynamicImage {
 /// assert_eq!(reflect(10, 0), 0); // max <= 0 always returns 0
 
 /// ```
-fn reflect(mut val: i64, max: i64) -> i64 {
-    if max <= 0 { return 0; }
-    if max == 1 { return 0; }
+pub fn reflect(mut val: i64, max: i64) -> i64 {
+    if max <= 0 {
+        return 0;
+    }
+    if max == 1 {
+        return 0;
+    }
 
     while val < 0 || val >= max {
         if val < 0 {
-             val = -val - 1;
+            val = -val - 1;
         } else {
-             val = 2 * max - 1 - 1 - val;
+            val = 2 * max - 1 - 1 - val;
         }
     }
     val
@@ -153,7 +158,7 @@ fn reflect(mut val: i64, max: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{Rgba, ImageBuffer};
+    use image::{ImageBuffer, Rgba};
 
     /// Creates a test RGBA image of the given width and height with a simple gradient.
     ///

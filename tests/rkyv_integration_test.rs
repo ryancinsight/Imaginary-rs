@@ -1,5 +1,5 @@
-use imaginary::image::params::{ResizeParams, ResizeFilter};
 use imaginary::http::handlers::info_handler::ImageInfo;
+use imaginary::image::params::{ResizeFilter, ResizeParams};
 
 #[test]
 fn test_resize_params_serialization() {
@@ -13,18 +13,20 @@ fn test_resize_params_serialization() {
     let bytes = rkyv::to_bytes::<_, 256>(&params).expect("failed to serialize params");
 
     // Deserialize
-    let deserialized: ResizeParams = rkyv::from_bytes(&bytes).expect("failed to deserialize params");
+    let deserialized: ResizeParams =
+        rkyv::from_bytes(&bytes).expect("failed to deserialize params");
 
     assert_eq!(params.width, deserialized.width);
     assert_eq!(params.height, deserialized.height);
 
     match deserialized.filter {
-        ResizeFilter::Triangle => {},
+        ResizeFilter::Triangle => {}
         _ => panic!("Wrong filter deserialized"),
     }
 
     // Access archived value directly (zero-copy)
-    let archived = rkyv::check_archived_root::<ResizeParams>(&bytes).expect("failed to check bytes");
+    let archived =
+        rkyv::check_archived_root::<ResizeParams>(&bytes).expect("failed to check bytes");
     assert_eq!(archived.width, params.width);
     assert_eq!(archived.height, params.height);
 }
@@ -76,10 +78,14 @@ fn test_storage_config_serialization() {
     let bytes = rkyv::to_bytes::<_, 256>(&config).expect("failed to serialize config");
 
     // Deserialize
-    let deserialized: StorageConfig = rkyv::from_bytes(&bytes).expect("failed to deserialize config");
+    let deserialized: StorageConfig =
+        rkyv::from_bytes(&bytes).expect("failed to deserialize config");
 
     assert_eq!(config.temp_dir, deserialized.temp_dir);
     assert_eq!(config.max_cache_size, deserialized.max_cache_size);
-    assert_eq!(config.cache_cleanup_interval, deserialized.cache_cleanup_interval);
+    assert_eq!(
+        config.cache_cleanup_interval,
+        deserialized.cache_cleanup_interval
+    );
     assert_eq!(config.cache_max_age, deserialized.cache_max_age);
 }

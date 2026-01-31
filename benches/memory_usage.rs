@@ -1,8 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use image::{DynamicImage, ImageBuffer, RgbImage};
 use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperationSpec, SupportedOperation};
-use image::{DynamicImage, ImageBuffer, RgbImage};
 use serde_json::json;
 use std::sync::Arc;
 use std::thread;
@@ -10,11 +10,7 @@ use std::thread;
 // Create test images with different characteristics
 fn create_test_image(width: u32, height: u32) -> DynamicImage {
     let img: RgbImage = ImageBuffer::from_fn(width, height, |x, y| {
-        image::Rgb([
-            (x % 256) as u8,
-            (y % 256) as u8,
-            ((x + y) % 256) as u8,
-        ])
+        image::Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
     });
     DynamicImage::ImageRgb8(img)
 }
@@ -32,7 +28,7 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
         (1920, 1080, "large"),
         (3840, 2160, "xlarge"),
     ];
-    
+
     let operations = vec![
         PipelineOperationSpec {
             operation: SupportedOperation::Resize,
@@ -45,10 +41,10 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
             ignore_failure: false,
         },
     ];
-    
+
     for (width, height, size_name) in sizes {
         let img = create_test_image(width, height);
-        
+
         group.bench_with_input(
             BenchmarkId::new("pipeline_memory_usage", size_name),
             &img,
@@ -64,7 +60,7 @@ fn bench_memory_by_image_size(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -73,63 +69,73 @@ fn bench_memory_by_operation_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_by_operation_count");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     let img = create_test_image(800, 600);
-    
+
     let operation_sets = vec![
-        (1, "single_op", vec![
-            PipelineOperationSpec {
+        (
+            1,
+            "single_op",
+            vec![PipelineOperationSpec {
                 operation: SupportedOperation::Resize,
                 params: json!({"width": 400, "height": 300}),
                 ignore_failure: false,
-            },
-        ]),
-        (3, "three_ops", vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 400, "height": 300}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Grayscale,
-                params: json!({}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Blur,
-                params: json!({"sigma": 1.0}),
-                ignore_failure: false,
-            },
-        ]),
-        (5, "five_ops", vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Resize,
-                params: json!({"width": 600, "height": 400}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Crop,
-                params: json!({"x": 50, "y": 50, "width": 500, "height": 300}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Rotate,
-                params: json!({"degrees": 90.0}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::AdjustBrightness,
-                params: json!({"value": 10}),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: SupportedOperation::Sharpen,
-                params: json!({}),
-                ignore_failure: false,
-            },
-        ]),
+            }],
+        ),
+        (
+            3,
+            "three_ops",
+            vec![
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Resize,
+                    params: json!({"width": 400, "height": 300}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Grayscale,
+                    params: json!({}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Blur,
+                    params: json!({"sigma": 1.0}),
+                    ignore_failure: false,
+                },
+            ],
+        ),
+        (
+            5,
+            "five_ops",
+            vec![
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Resize,
+                    params: json!({"width": 600, "height": 400}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Crop,
+                    params: json!({"x": 50, "y": 50, "width": 500, "height": 300}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Rotate,
+                    params: json!({"degrees": 90.0}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::AdjustBrightness,
+                    params: json!({"value": 10}),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: SupportedOperation::Sharpen,
+                    params: json!({}),
+                    ignore_failure: false,
+                },
+            ],
+        ),
     ];
-    
+
     for (_count, name, operations) in operation_sets {
         group.bench_with_input(
             BenchmarkId::new("operation_count_memory", name),
@@ -146,7 +152,7 @@ fn bench_memory_by_operation_count(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -155,9 +161,9 @@ fn bench_memory_by_format(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_by_format");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     let img = create_test_image(1000, 750);
-    
+
     let format_operations = vec![
         ("jpeg_high", json!({"format": "jpeg", "quality": 95})),
         ("jpeg_medium", json!({"format": "jpeg", "quality": 80})),
@@ -166,16 +172,14 @@ fn bench_memory_by_format(c: &mut Criterion) {
         ("webp_high", json!({"format": "webp", "quality": 95})),
         ("webp_low", json!({"format": "webp", "quality": 50})),
     ];
-    
+
     for (format_name, params) in format_operations {
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: SupportedOperation::Convert,
-                params,
-                ignore_failure: false,
-            },
-        ];
-        
+        let operations = vec![PipelineOperationSpec {
+            operation: SupportedOperation::Convert,
+            params,
+            ignore_failure: false,
+        }];
+
         group.bench_with_input(
             BenchmarkId::new("format_memory", format_name),
             &operations,
@@ -191,7 +195,7 @@ fn bench_memory_by_format(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -200,10 +204,10 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_cloning_patterns");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     let img = create_test_image(800, 600);
     let img_arc = Arc::new(img.clone());
-    
+
     let operations = vec![
         PipelineOperationSpec {
             operation: SupportedOperation::Resize,
@@ -216,7 +220,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
             ignore_failure: false,
         },
     ];
-    
+
     // Test with direct cloning
     group.bench_function("direct_cloning", |b| {
         b.iter(|| {
@@ -228,7 +232,7 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
             ))
         })
     });
-    
+
     // Test with Arc to demonstrate that it provides no benefit with the current
     // `execute_pipeline` API, which requires a full clone of the image data.
     group.bench_function("arc_reference_ineffective", |b| {
@@ -243,14 +247,14 @@ fn bench_memory_cloning_patterns(c: &mut Criterion) {
             ))
         })
     });
-    
+
     group.finish();
 }
 
 // Benchmark memory usage under concurrent load
 fn bench_memory_concurrent_load(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_concurrent_load");
-    
+
     let img = create_test_image(600, 400);
     let operations = vec![
         PipelineOperationSpec {
@@ -264,9 +268,9 @@ fn bench_memory_concurrent_load(c: &mut Criterion) {
             ignore_failure: false,
         },
     ];
-    
+
     let concurrency_levels = vec![1, 2, 4, 8];
-    
+
     for concurrency in concurrency_levels {
         group.bench_with_input(
             BenchmarkId::new("concurrent_memory", concurrency),
@@ -277,7 +281,7 @@ fn bench_memory_concurrent_load(c: &mut Criterion) {
                         .map(|_| {
                             let img = img.clone();
                             let ops = operations.clone();
-                            
+
                             thread::spawn(move || {
                                 let rt = tokio::runtime::Runtime::new().unwrap();
                                 let handle = rt.handle();
@@ -285,18 +289,18 @@ fn bench_memory_concurrent_load(c: &mut Criterion) {
                             })
                         })
                         .collect();
-                    
+
                     let results: Vec<_> = handles
                         .into_iter()
                         .map(|handle| handle.join().unwrap())
                         .collect();
-                    
+
                     black_box(results)
                 })
             },
         );
     }
-    
+
     group.finish();
 }
 

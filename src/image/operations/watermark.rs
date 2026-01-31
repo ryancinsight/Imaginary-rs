@@ -331,11 +331,8 @@ mod tests {
     #[test]
     fn test_apply_watermark_center() {
         let img = create_test_image(200, 100);
-        let watermark = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
-            50,
-            50,
-            Rgba([255, 255, 255, 255]),
-        ));
+        let watermark =
+            DynamicImage::ImageRgba8(ImageBuffer::from_pixel(50, 50, Rgba([255, 255, 255, 255])));
         let params = WatermarkImageParams {
             watermark_url: "http://example.com/wm.png".to_string(),
             opacity: 0.5,
@@ -378,11 +375,8 @@ mod tests {
     #[test]
     fn test_apply_watermark_offset() {
         let img = create_test_image(200, 100);
-        let watermark = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
-            20,
-            20,
-            Rgba([255, 255, 255, 255]),
-        ));
+        let watermark =
+            DynamicImage::ImageRgba8(ImageBuffer::from_pixel(20, 20, Rgba([255, 255, 255, 255])));
         let params = WatermarkImageParams {
             watermark_url: "http://example.com/wm.png".to_string(),
             opacity: 1.0,

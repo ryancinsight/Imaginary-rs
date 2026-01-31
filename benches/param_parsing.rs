@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use imaginary::image::pipeline_types::PipelineOperationSpec;
-use serde_json::json;
 use serde::Deserialize;
+use serde_json::json;
 
 fn bench_parsing(c: &mut Criterion) {
     let mut group = c.benchmark_group("param_parsing");
