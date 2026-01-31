@@ -420,7 +420,12 @@ mod tests {
             },
             "ignoreFailure": false
         }))];
-        let result = execute_pipeline(image.clone(), operations, &default_config(), &get_runtime_handle());
+        let result = execute_pipeline(
+            image.clone(),
+            operations,
+            &default_config(),
+            &get_runtime_handle(),
+        );
         assert!(result.is_err(), "Watermark missing text should error");
     }
 
@@ -475,7 +480,8 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
+        let result =
+            execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_ok());
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (50, 75));
@@ -490,7 +496,8 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
+        let result =
+            execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_err());
         let (returned_image, _err) = result.err().unwrap();
         assert_eq!(returned_image.dimensions(), (100, 100));
@@ -504,7 +511,8 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
+        let result =
+            execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_ok());
     }
 
@@ -568,7 +576,11 @@ mod tests {
         ];
 
         let result = execute_pipeline(image, operations, &default_config(), &get_runtime_handle());
-        assert!(result.is_ok(), "Pipeline with new operations failed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Pipeline with new operations failed: {:?}",
+            result
+        );
         let processed = result.unwrap();
         assert_eq!(processed.dimensions(), (25, 25));
     }
@@ -584,7 +596,8 @@ mod tests {
             "ignoreFailure": false
         }));
 
-        let result = execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
+        let result =
+            execute_single_operation(image, &spec, &default_config(), &get_runtime_handle());
         assert!(result.is_err());
         let (returned_image, _) = result.err().unwrap();
         assert_eq!(returned_image.dimensions(), (100, 100));

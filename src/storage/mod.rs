@@ -46,11 +46,7 @@ pub fn init_storage_dirs(temp_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn calculate_hash_sync(
-    image_path: &Path,
-    operation: &str,
-    params: &str,
-) -> Result<String> {
+pub fn calculate_hash_sync(image_path: &Path, operation: &str, params: &str) -> Result<String> {
     let mut hasher = Sha256::new();
     let mut file = fs::File::open(image_path)?;
     let mut buffer = [0; 8192]; // 8KB buffer
@@ -77,7 +73,7 @@ pub fn get_hash_cached(
     _mtime: u64,
     _size: u64,
     _operation: &str,
-    _params: &str
+    _params: &str,
 ) -> Option<String> {
     // We recreate path from string to open it.
     let path = PathBuf::from(&_path_str);
@@ -89,7 +85,8 @@ pub fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> 
     let metadata = fs::metadata(&image_path).ok()?;
     // If we can't get mtime (e.g. some filesystems), we default to 0? Or just fail?
     // Using 0 might risk stale cache if mtime is broken. But usually it works.
-    let mtime = metadata.modified()
+    let mtime = metadata
+        .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
@@ -197,11 +194,7 @@ pub fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<Pa
     get_cached_result(image_path.to_path_buf(), operation, params)
 }
 
-pub fn calculate_hash_from_memory(
-    image_data: &[u8],
-    operation: &str,
-    params: &str,
-) -> String {
+pub fn calculate_hash_from_memory(image_data: &[u8], operation: &str, params: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(image_data);
     hasher.update(operation.as_bytes());

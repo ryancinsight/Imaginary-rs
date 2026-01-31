@@ -3,11 +3,13 @@
 //! This module provides functions for resizing, rotating, cropping, flipping, enlarging, extracting, zooming, smart cropping, and creating thumbnails.
 
 use crate::image::params::{
-    CropParams, EmbedParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams, RotateParams,
-    SmartCropParams, ThumbnailParams, Validate, ZoomParams,
+    CropParams, EmbedParams, ExtractParams, FillParams, FitParams, ResizeFilter, ResizeParams,
+    RotateParams, SmartCropParams, ThumbnailParams, Validate, ZoomParams,
 };
 use fast_image_resize::images::Image;
-use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
+use fast_image_resize::{
+    FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer,
+};
 use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use imageproc::gradients::sobel_gradients;
 use rayon::prelude::*;
@@ -215,11 +217,8 @@ pub fn embed(image: DynamicImage, params: &EmbedParams) -> DynamicImage {
     let resized = resize_fit_scale(image, &fit_params).into_rgba8();
 
     // 2. Create a new image with background color
-    let mut background = ImageBuffer::from_pixel(
-        params.width,
-        params.height,
-        Rgba(params.background),
-    );
+    let mut background =
+        ImageBuffer::from_pixel(params.width, params.height, Rgba(params.background));
 
     // 3. Overlay the resized image on the background (centered)
     let (w, h) = resized.dimensions();
@@ -382,7 +381,9 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     let mut x = 0;
     while x <= img_w - crop_w {
         xs.push(x);
-        if x == img_w - crop_w { break; }
+        if x == img_w - crop_w {
+            break;
+        }
         x = (x + step_x).min(img_w - crop_w);
     }
 
@@ -391,15 +392,19 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
     let mut y = 0;
     while y <= img_h - crop_h {
         ys.push(y);
-        if y == img_h - crop_h { break; }
+        if y == img_h - crop_h {
+            break;
+        }
         y = (y + step_y).min(img_h - crop_h);
     }
 
     // Find best candidate using parallel iterator for X and serial for Y
-    let best_candidate = xs.par_iter()
+    let best_candidate = xs
+        .par_iter()
         .map(|&x| {
             // Find best Y for this X
-            let (best_y, energy) = ys.iter()
+            let (best_y, energy) = ys
+                .iter()
                 .map(|&y| (y, get_energy(x, y, crop_w, crop_h)))
                 .max_by_key(|&(_, energy)| energy)
                 .unwrap_or((0, 0));
@@ -426,12 +431,12 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
 
     for x in start_x..=end_x {
         for y in start_y..=end_y {
-             let energy = get_energy(x, y, crop_w, crop_h);
-             if energy > max_energy {
-                 max_energy = energy;
-                 best_x = x;
-                 best_y = y;
-             }
+            let energy = get_energy(x, y, crop_w, crop_h);
+            if energy > max_energy {
+                max_energy = energy;
+                best_x = x;
+                best_y = y;
+            }
         }
     }
 
@@ -456,8 +461,8 @@ pub fn thumbnail(image: DynamicImage, params: &ThumbnailParams) -> DynamicImage 
 mod tests {
     use super::*;
     use crate::image::params::{
-        CropParams, EmbedParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams, ThumbnailParams,
-        ZoomParams,
+        CropParams, EmbedParams, ExtractParams, ResizeParams, RotateParams, SmartCropParams,
+        ThumbnailParams, ZoomParams,
     };
     use image::{DynamicImage, ImageBuffer, Rgba};
 

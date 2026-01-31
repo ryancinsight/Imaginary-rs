@@ -9,7 +9,10 @@ pub fn extract_palette(image: &DynamicImage, max_colors: u8) -> Result<Vec<[u8; 
     // Quality 10 is standard.
     match get_palette(bytes, ColorFormat::Rgb, 10, max_colors) {
         Ok(palette) => Ok(palette.into_iter().map(|c| [c.r, c.g, c.b]).collect()),
-        Err(e) => Err(AppError::ImageProcessingError(format!("Failed to extract palette: {:?}", e))),
+        Err(e) => Err(AppError::ImageProcessingError(format!(
+            "Failed to extract palette: {:?}",
+            e
+        ))),
     }
 }
 
@@ -36,9 +39,9 @@ mod tests {
         let red = [255, 0, 0];
         // Check if any color is close to red
         let found = palette.iter().any(|c| {
-            let dist = (c[0] as i32 - red[0] as i32).abs() +
-                       (c[1] as i32 - red[1] as i32).abs() +
-                       (c[2] as i32 - red[2] as i32).abs();
+            let dist = (c[0] as i32 - red[0] as i32).abs()
+                + (c[1] as i32 - red[1] as i32).abs()
+                + (c[2] as i32 - red[2] as i32).abs();
             dist < 10
         });
         assert!(found, "Red color not found in palette: {:?}", palette);
