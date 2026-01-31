@@ -131,6 +131,10 @@ harness = false
 name = "param_parsing"
 harness = false
 
+[[bench]]
+name = "smart_crop_bench"
+harness = false
+
 [features]
 default = ["jpeg", "png", "webp", "avif"]
 jpeg = []

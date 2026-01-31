@@ -377,24 +377,33 @@ pub fn smart_crop(image: DynamicImage, params: &SmartCropParams) -> DynamicImage
         .round()
         .max(1.0) as u32;
 
-    // Generate candidates for parallel processing
-    let mut candidates = Vec::new();
+    // Generate X candidates
+    let mut xs = Vec::new();
     let mut x = 0;
     while x <= img_w - crop_w {
-        let mut y = 0;
-        while y <= img_h - crop_h {
-            candidates.push((x, y));
-            if y == img_h - crop_h { break; }
-            y = (y + step_y).min(img_h - crop_h);
-        }
+        xs.push(x);
         if x == img_w - crop_w { break; }
         x = (x + step_x).min(img_w - crop_w);
     }
 
-    // Find best candidate using parallel iterator
-    let best_candidate = candidates.par_iter()
-        .map(|&(x, y)| {
-            (x, y, get_energy(x, y, crop_w, crop_h))
+    // Generate Y candidates
+    let mut ys = Vec::new();
+    let mut y = 0;
+    while y <= img_h - crop_h {
+        ys.push(y);
+        if y == img_h - crop_h { break; }
+        y = (y + step_y).min(img_h - crop_h);
+    }
+
+    // Find best candidate using parallel iterator for X and serial for Y
+    let best_candidate = xs.par_iter()
+        .map(|&x| {
+            // Find best Y for this X
+            let (best_y, energy) = ys.iter()
+                .map(|&y| (y, get_energy(x, y, crop_w, crop_h)))
+                .max_by_key(|&(_, energy)| energy)
+                .unwrap_or((0, 0));
+            (x, best_y, energy)
         })
         .max_by_key(|&(_, _, energy)| energy);
 
