@@ -37,7 +37,7 @@ async fn test_cache_performance() {
 
     // 1. Measure Cache Miss (Baseline)
     let start = Instant::now();
-    let result = get_cached_result(image_path.clone(), operation, params);
+    let result = get_cached_result(image_path.clone(), operation, params).await;
     let duration_miss = start.elapsed();
     println!("Cache Miss Duration: {:?}", duration_miss);
     assert!(result.is_none(), "Expected cache miss initially");
@@ -47,7 +47,7 @@ async fn test_cache_performance() {
 
     // 3. Measure Cache Hit
     let start = Instant::now();
-    let result = get_cached_result(image_path.clone(), operation, params);
+    let result = get_cached_result(image_path.clone(), operation, params).await;
     let duration_hit = start.elapsed();
     println!("Cache Hit Duration: {:?}", duration_hit);
 

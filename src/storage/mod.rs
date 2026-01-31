@@ -4,7 +4,6 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
@@ -46,33 +45,13 @@ pub fn init_storage_dirs(temp_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn calculate_hash_sync(
-    image_path: &Path,
-    operation: &str,
-    params: &str,
-) -> Result<String> {
-    let mut hasher = Sha256::new();
-    let mut file = fs::File::open(image_path)?;
-    let mut buffer = [0; 8192]; // 8KB buffer
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        hasher.update(&buffer[..count]);
-    }
-    hasher.update(operation.as_bytes());
-    hasher.update(params.as_bytes());
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
 // Cache for storing operation hashes (avoids re-reading file to compute hash)
 #[cached(
     size = 100,
     key = "String",
     convert = r#"{ format!("{}:{}:{}:{}:{}", _path_str, _mtime, _size, _operation, _params) }"#
 )]
-pub fn get_hash_cached(
+pub async fn get_hash_cached_async(
     _path_str: String,
     _mtime: u64,
     _size: u64,
@@ -81,12 +60,12 @@ pub fn get_hash_cached(
 ) -> Option<String> {
     // We recreate path from string to open it.
     let path = PathBuf::from(&_path_str);
-    calculate_hash_sync(&path, _operation, _params).ok()
+    generate_operation_hash(&path, _operation, _params).await.ok()
 }
 
-pub fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> Option<PathBuf> {
+pub async fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> Option<PathBuf> {
     // Get metadata to ensure cache validity
-    let metadata = fs::metadata(&image_path).ok()?;
+    let metadata = tokio_fs::metadata(&image_path).await.ok()?;
     // If we can't get mtime (e.g. some filesystems), we default to 0? Or just fail?
     // Using 0 might risk stale cache if mtime is broken. But usually it works.
     let mtime = metadata.modified()
@@ -98,12 +77,12 @@ pub fn get_cached_result(image_path: PathBuf, operation: &str, params: &str) -> 
 
     let path_str = image_path.to_string_lossy().to_string();
 
-    let hash = get_hash_cached(path_str, mtime, size, operation, params)?;
+    let hash = get_hash_cached_async(path_str, mtime, size, operation, params).await?;
 
     let temp_dir = default_temp_dir_path();
     let cache_path = temp_dir.join(format!("{}.img", hash));
 
-    if cache_path.exists() {
+    if tokio_fs::try_exists(&cache_path).await.unwrap_or(false) {
         Some(cache_path)
     } else {
         None
@@ -193,8 +172,8 @@ pub async fn cache_result(image_path: &Path, operation: &str, params: &str, resu
     }
 }
 
-pub fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<PathBuf> {
-    get_cached_result(image_path.to_path_buf(), operation, params)
+pub async fn get_result(image_path: &Path, operation: &str, params: &str) -> Option<PathBuf> {
+    get_cached_result(image_path.to_path_buf(), operation, params).await
 }
 
 pub fn calculate_hash_from_memory(
