@@ -171,6 +171,12 @@ fn execute_single_operation(
             }
             Ok(operations::enlarge(image, params))
         }
+        PipelineOperation::Trim(params) => {
+            if let Err(e) = params.validate() {
+                return Err(map_valid_err(image, "Trim", e));
+            }
+            Ok(operations::trim(image, params))
+        }
         PipelineOperation::Extract(params) => {
             if let Err(e) = params.validate() {
                 return Err(map_valid_err(image, "Extract", e));

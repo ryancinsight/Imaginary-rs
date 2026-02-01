@@ -20,7 +20,7 @@ pub mod watermark;
 pub use color::{adjust_brightness, adjust_contrast, blur, gamma, grayscale, negate, sharpen};
 pub use transform::{
     crop, embed, enlarge, extend, extract, fill, fit, flip_horizontal, flip_vertical, resize, rotate,
-    smart_crop, thumbnail, zoom,
+    smart_crop, thumbnail, trim, zoom,
 };
 pub use watermark::{watermark, watermark_image};
 pub use format::{autorotate, convert_format};

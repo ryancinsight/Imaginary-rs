@@ -186,6 +186,34 @@ impl Validate for WatermarkParams {
     }
 }
 
+/// Parameters for automatically cropping uniform borders.
+/// - threshold: similarity threshold (0.0-1.0, default 0.1)
+/// - background_color: optional RGBA reference color
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default, Archive, RkyvDeserialize, RkyvSerialize)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug))]
+pub struct TrimParams {
+    #[serde(default = "default_threshold")]
+    pub threshold: f32,
+    #[serde(default)]
+    pub background_color: Option<[u8; 4]>,
+}
+
+fn default_threshold() -> f32 {
+    0.1
+}
+
+impl Validate for TrimParams {
+    fn validate(&self) -> Result<(), ImageError> {
+        if self.threshold < 0.0 || self.threshold > 1.0 {
+            return Err(ImageError::InvalidParameters(
+                "Threshold must be between 0.0 and 1.0".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Parameters for embedding an image in a box (resize fit + pad).
 /// - width, height: box size
 /// - background: optional RGBA color (default white)
