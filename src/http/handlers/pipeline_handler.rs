@@ -110,7 +110,7 @@ pub async fn process_pipeline(
 
     let config_clone = config.clone();
     let handle = tokio::runtime::Handle::current();
-    let final_image_bytes = tokio::task::spawn_blocking(move || {
+    let final_image_vec = tokio::task::spawn_blocking(move || {
         let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
             .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
 
@@ -127,9 +127,12 @@ pub async fn process_pipeline(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Image processing task failed: {}", e)))??;
 
+    // Convert to Bytes immediately to allow cheap cloning (shared ownership)
+    let final_image_bytes = Bytes::from(final_image_vec);
+
     // Save to cache (async)
     let hash_clone = hash.clone();
-    let bytes_for_cache = Bytes::from(final_image_bytes.clone());
+    let bytes_for_cache = final_image_bytes.clone();
     tokio::spawn(async move {
         if let Err(e) = crate::storage::save_buffer_to_cache(&hash_clone, &bytes_for_cache).await {
             tracing::error!("Failed to save to cache: {}", e);
