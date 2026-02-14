@@ -1,4 +1,4 @@
-use imaginary::storage::{get_cached_result, cache_result};
+use imaginary::storage::{cache_result, get_cached_result};
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::fs;
@@ -15,7 +15,10 @@ async fn test_cache_performance() {
     }
 
     // Create unique content to ensure unique hash
-    let unique_id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let unique_id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let image_content = format!("fake image content {}", unique_id);
 
     if !test_dir.exists() {

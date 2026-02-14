@@ -17,38 +17,46 @@ fn bench_bytes_allocation(c: &mut Criterion) {
 
         // Benchmark: Scenario 1 (Old)
         // Clone the Vec<u8> (Deep Copy) then convert to Bytes
-        group.bench_with_input(BenchmarkId::new("old_implementation", size), &size, |b, _| {
-            b.iter_with_setup(
-                || data.clone(),
-                |vec_data| {
-                    // Logic from original code:
-                    // let bytes_for_cache = Bytes::from(final_image_bytes.clone());
-                    // response... Body::from(final_image_bytes)
+        group.bench_with_input(
+            BenchmarkId::new("old_implementation", size),
+            &size,
+            |b, _| {
+                b.iter_with_setup(
+                    || data.clone(),
+                    |vec_data| {
+                        // Logic from original code:
+                        // let bytes_for_cache = Bytes::from(final_image_bytes.clone());
+                        // response... Body::from(final_image_bytes)
 
-                    // We measure the cost of the clone + conversion
-                    let _cache_data = Bytes::from(black_box(vec_data.clone()));
-                    let _response_data = black_box(vec_data);
-                }
-            )
-        });
+                        // We measure the cost of the clone + conversion
+                        let _cache_data = Bytes::from(black_box(vec_data.clone()));
+                        let _response_data = black_box(vec_data);
+                    },
+                )
+            },
+        );
 
         // Benchmark: Scenario 2 (New)
         // Convert Vec<u8> to Bytes (Move) then Clone Bytes (Shallow Copy)
-        group.bench_with_input(BenchmarkId::new("new_implementation", size), &size, |b, _| {
-            b.iter_with_setup(
-                || data.clone(),
-                |vec_data| {
-                     // Logic for optimized code:
-                     // let bytes = Bytes::from(final_image_bytes);
-                     // let bytes_for_cache = bytes.clone();
-                     // response... Body::from(bytes)
+        group.bench_with_input(
+            BenchmarkId::new("new_implementation", size),
+            &size,
+            |b, _| {
+                b.iter_with_setup(
+                    || data.clone(),
+                    |vec_data| {
+                        // Logic for optimized code:
+                        // let bytes = Bytes::from(final_image_bytes);
+                        // let bytes_for_cache = bytes.clone();
+                        // response... Body::from(bytes)
 
-                     let bytes = Bytes::from(vec_data);
-                     let _cache_data = black_box(bytes.clone());
-                     let _response_data = black_box(bytes);
-                }
-            )
-        });
+                        let bytes = Bytes::from(vec_data);
+                        let _cache_data = black_box(bytes.clone());
+                        let _response_data = black_box(bytes);
+                    },
+                )
+            },
+        );
     }
 
     group.finish();

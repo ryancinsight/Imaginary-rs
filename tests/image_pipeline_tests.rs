@@ -5,12 +5,13 @@ use image::GenericImageView;
 use imaginary::config::Config;
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::PipelineOperationSpec;
-use serde_json::json;
 use serde::Deserialize;
+use serde_json::json;
 
 // Helper to convert JSON params to specific operation spec via deserialization
 fn create_op_spec(json: &serde_json::Value) -> PipelineOperationSpec {
-    PipelineOperationSpec::deserialize(json).expect("Failed to create PipelineOperationSpec from JSON")
+    PipelineOperationSpec::deserialize(json)
+        .expect("Failed to create PipelineOperationSpec from JSON")
 }
 
 // Helper to get runtime handle
@@ -143,7 +144,12 @@ fn test_pipeline_with_different_image_formats() {
         })),
     ];
 
-    let result = execute_pipeline(tiff_image, operations, &Config::default(), &get_runtime_handle());
+    let result = execute_pipeline(
+        tiff_image,
+        operations,
+        &Config::default(),
+        &get_runtime_handle(),
+    );
     assert!(result.is_ok());
     let processed = result.unwrap();
     assert_eq!(processed.dimensions(), (100, 100));

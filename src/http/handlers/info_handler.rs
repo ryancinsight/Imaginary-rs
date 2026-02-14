@@ -5,9 +5,9 @@ use axum::{
     Json,
 };
 use image::GenericImageView;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
     config::Config,
@@ -79,8 +79,7 @@ pub async fn get_info(
                     break; // Found image, stop parsing
                 }
             }
-            image_data
-                .ok_or_else(|| AppError::BadRequest("Missing image data".to_string()))?
+            image_data.ok_or_else(|| AppError::BadRequest("Missing image data".to_string()))?
         }
         _ => return Err(AppError::BadRequest("Method not allowed".to_string())),
     };

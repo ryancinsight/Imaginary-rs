@@ -8,7 +8,10 @@ use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 /// - Scales down if the image is larger than the target dimensions.
 /// - Does NOT upscale if the image is smaller than the target dimensions.
 /// - Pads the remaining space with the specified background color (default black) to match the target dimensions.
-pub fn fit(image: DynamicImage, params: &FitParams) -> Result<DynamicImage, (DynamicImage, ImageError)> {
+pub fn fit(
+    image: DynamicImage,
+    params: &FitParams,
+) -> Result<DynamicImage, (DynamicImage, ImageError)> {
     if let Err(e) = params.validate() {
         return Err((image, e));
     }

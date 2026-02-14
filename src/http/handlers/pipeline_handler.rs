@@ -18,9 +18,9 @@ use axum::{
     response::Response,
 };
 use image::ImageFormat;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::Deserialize;
 use serde_json::from_str;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
     config::Config, // Assuming Config is at crate::config
@@ -114,7 +114,8 @@ pub async fn process_pipeline(
         let dynamic_image = image::load_from_memory_with_format(&image_bytes, original_format)
             .map_err(|e| AppError::ImageProcessingError(format!("Failed to load image: {}", e)))?;
 
-        let processed_image = execute_pipeline(dynamic_image, operations_spec, &config_clone, &handle)?;
+        let processed_image =
+            execute_pipeline(dynamic_image, operations_spec, &config_clone, &handle)?;
 
         let mut bytes = Vec::new();
         processed_image
@@ -242,7 +243,6 @@ async fn handle_post_request(
 
     Ok((image_bytes, operations_spec, original_format))
 }
-
 
 fn determine_output_format(
     operations_spec: &[PipelineOperationSpec],

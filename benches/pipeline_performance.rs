@@ -1,20 +1,19 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use image::{DynamicImage, ImageBuffer, RgbImage};
 use imaginary::config::Config;
+use imaginary::image::params::{
+    AdjustBrightnessParams, BlurParams, CropParams, FormatConversionParams, ResizeParams,
+    RotateParams,
+};
 use imaginary::image::pipeline_executor::execute_pipeline;
 use imaginary::image::pipeline_types::{PipelineOperation, PipelineOperationSpec};
-use imaginary::image::params::{ResizeParams, BlurParams, CropParams, RotateParams, AdjustBrightnessParams, FormatConversionParams};
-use image::{DynamicImage, ImageBuffer, RgbImage};
-use std::thread;
 use std::sync::Arc;
+use std::thread;
 
 // Create test image data for benchmarking
 fn create_test_image(width: u32, height: u32) -> DynamicImage {
     let img: RgbImage = ImageBuffer::from_fn(width, height, |x, y| {
-        image::Rgb([
-            (x % 256) as u8,
-            (y % 256) as u8,
-            ((x + y) % 256) as u8,
-        ])
+        image::Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8])
     });
     DynamicImage::ImageRgb8(img)
 }
@@ -24,55 +23,87 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("pipeline_operations_count");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     let test_image = create_test_image(800, 600);
-    
+
     // Different complexity levels
     let operation_sets = vec![
-        (1, "single_operation", vec![
-            PipelineOperationSpec {
-                operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
+        (
+            1,
+            "single_operation",
+            vec![PipelineOperationSpec {
+                operation: PipelineOperation::Resize(ResizeParams {
+                    width: 400,
+                    height: 300,
+                    ..Default::default()
+                }),
                 ignore_failure: false,
-            },
-        ]),
-        (3, "three_operations", vec![
-            PipelineOperationSpec {
-                operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::Grayscale,
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::Blur(BlurParams { sigma: 1.0, minampl: None }),
-                ignore_failure: false,
-            },
-        ]),
-        (5, "five_operations", vec![
-            PipelineOperationSpec {
-                operation: PipelineOperation::Resize(ResizeParams { width: 600, height: 400, ..Default::default() }),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::Crop(CropParams { x: 50, y: 50, width: 500, height: 300 }),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::Rotate(RotateParams { degrees: 90.0 }),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::AdjustBrightness(AdjustBrightnessParams { value: 10 }),
-                ignore_failure: false,
-            },
-            PipelineOperationSpec {
-                operation: PipelineOperation::Sharpen,
-                ignore_failure: false,
-            },
-        ]),
+            }],
+        ),
+        (
+            3,
+            "three_operations",
+            vec![
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Resize(ResizeParams {
+                        width: 400,
+                        height: 300,
+                        ..Default::default()
+                    }),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Grayscale,
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Blur(BlurParams {
+                        sigma: 1.0,
+                        minampl: None,
+                    }),
+                    ignore_failure: false,
+                },
+            ],
+        ),
+        (
+            5,
+            "five_operations",
+            vec![
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Resize(ResizeParams {
+                        width: 600,
+                        height: 400,
+                        ..Default::default()
+                    }),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Crop(CropParams {
+                        x: 50,
+                        y: 50,
+                        width: 500,
+                        height: 300,
+                    }),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Rotate(RotateParams { degrees: 90.0 }),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::AdjustBrightness(AdjustBrightnessParams {
+                        value: 10,
+                    }),
+                    ignore_failure: false,
+                },
+                PipelineOperationSpec {
+                    operation: PipelineOperation::Sharpen,
+                    ignore_failure: false,
+                },
+            ],
+        ),
     ];
-    
+
     for (_count, name, operations) in operation_sets {
         group.bench_with_input(
             BenchmarkId::new("pipeline_processing", name),
@@ -89,7 +120,7 @@ fn bench_pipeline_operations_count(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -98,7 +129,7 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_usage_patterns");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     // Test with different image sizes to understand memory scaling
     let image_sizes = vec![
         (200, 150, "tiny"),
@@ -106,10 +137,14 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
         (1920, 1080, "medium"),
         (3840, 2160, "large"),
     ];
-    
+
     let operations = vec![
         PipelineOperationSpec {
-            operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
+            operation: PipelineOperation::Resize(ResizeParams {
+                width: 400,
+                height: 300,
+                ..Default::default()
+            }),
             ignore_failure: false,
         },
         PipelineOperationSpec {
@@ -117,14 +152,17 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: PipelineOperation::Blur(BlurParams { sigma: 2.0, minampl: None }),
+            operation: PipelineOperation::Blur(BlurParams {
+                sigma: 2.0,
+                minampl: None,
+            }),
             ignore_failure: false,
         },
     ];
-    
+
     for (width, height, size_name) in image_sizes {
         let test_image = create_test_image(width, height);
-        
+
         group.bench_with_input(
             BenchmarkId::new("memory_scaling", size_name),
             &test_image,
@@ -140,18 +178,22 @@ fn bench_memory_usage_patterns(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 // Benchmark concurrent pipeline processing
 fn bench_concurrent_processing(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_processing");
-    
+
     let test_image = Arc::new(create_test_image(800, 600));
     let operations = Arc::new(vec![
         PipelineOperationSpec {
-            operation: PipelineOperation::Resize(ResizeParams { width: 400, height: 300, ..Default::default() }),
+            operation: PipelineOperation::Resize(ResizeParams {
+                width: 400,
+                height: 300,
+                ..Default::default()
+            }),
             ignore_failure: false,
         },
         PipelineOperationSpec {
@@ -159,13 +201,16 @@ fn bench_concurrent_processing(c: &mut Criterion) {
             ignore_failure: false,
         },
         PipelineOperationSpec {
-            operation: PipelineOperation::Blur(BlurParams { sigma: 1.0, minampl: None }),
+            operation: PipelineOperation::Blur(BlurParams {
+                sigma: 1.0,
+                minampl: None,
+            }),
             ignore_failure: false,
         },
     ]);
-    
+
     let concurrency_levels = vec![1, 2, 4, 8];
-    
+
     for concurrency in concurrency_levels {
         group.bench_with_input(
             BenchmarkId::new("concurrent_requests", concurrency),
@@ -176,26 +221,31 @@ fn bench_concurrent_processing(c: &mut Criterion) {
                         .map(|_| {
                             let img = test_image.clone();
                             let ops = operations.clone();
-                            
+
                             thread::spawn(move || {
                                 let rt = tokio::runtime::Runtime::new().unwrap();
                                 let handle = rt.handle();
-                                execute_pipeline((*img).clone(), (*ops).clone(), &Config::default(), handle)
+                                execute_pipeline(
+                                    (*img).clone(),
+                                    (*ops).clone(),
+                                    &Config::default(),
+                                    handle,
+                                )
                             })
                         })
                         .collect();
-                    
+
                     let results: Vec<_> = handles
                         .into_iter()
                         .map(|handle| handle.join().unwrap())
                         .collect();
-                    
+
                     black_box(results)
                 })
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -204,42 +254,49 @@ fn bench_format_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("format_performance");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let handle = rt.handle();
-    
+
     let test_image = create_test_image(800, 600);
-    
+
     // Separate lossy and lossless formats for proper benchmarking
     let mut format_operations = Vec::new();
-    
+
     // JPEG quality variations (lossy format)
     for quality in [50, 80, 95] {
         format_operations.push((
             format!("jpeg_quality_{}", quality),
-            FormatConversionParams { format: "jpeg".to_string(), quality: Some(quality) },
+            FormatConversionParams {
+                format: "jpeg".to_string(),
+                quality: Some(quality),
+            },
         ));
     }
-    
+
     // WebP quality variations (lossy format)
     for quality in [50, 80, 95] {
         format_operations.push((
             format!("webp_quality_{}", quality),
-            FormatConversionParams { format: "webp".to_string(), quality: Some(quality) },
+            FormatConversionParams {
+                format: "webp".to_string(),
+                quality: Some(quality),
+            },
         ));
     }
-    
+
     // PNG (lossless format - quality parameter ignored)
     format_operations.push((
         "png_lossless".to_string(),
-        FormatConversionParams { format: "png".to_string(), quality: None },
+        FormatConversionParams {
+            format: "png".to_string(),
+            quality: None,
+        },
     ));
-    
+
     for (format_name, params) in format_operations {
-        let operations = vec![
-            PipelineOperationSpec {
-                operation: PipelineOperation::Convert(params),
-                ignore_failure: false,
-            },
-        ];
-        
+        let operations = vec![PipelineOperationSpec {
+            operation: PipelineOperation::Convert(params),
+            ignore_failure: false,
+        }];
+
         group.bench_with_input(
             BenchmarkId::new("format_conversion", format_name),
             &operations,
@@ -255,7 +312,7 @@ fn bench_format_performance(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
