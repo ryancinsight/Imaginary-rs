@@ -3,12 +3,14 @@
 //! This module defines the data structures used to specify a sequence of image operations (pipeline)
 //! and the set of operations supported by the pipeline executor.
 
-use serde::{Deserialize, Serialize};
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use super::params::*;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use serde::{Deserialize, Serialize};
 
 /// Specification for a single operation in an image processing pipeline.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(
+    Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize,
+)]
 #[serde(rename_all = "camelCase")]
 #[archive(check_bytes)]
 #[archive_attr(derive(Debug))]
@@ -22,7 +24,9 @@ pub struct PipelineOperationSpec {
 }
 
 /// Enum of all supported image operations for the pipeline, including their parameters.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(
+    Debug, Clone, PartialEq, Deserialize, Serialize, Archive, RkyvDeserialize, RkyvSerialize,
+)]
 #[serde(tag = "operation", content = "params")]
 #[serde(rename_all = "camelCase")]
 #[archive(check_bytes)]

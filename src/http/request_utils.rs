@@ -1,6 +1,6 @@
-use axum::body::Bytes;
 use crate::config::Config;
 use crate::http::errors::AppError;
+use axum::body::Bytes;
 use once_cell::sync::Lazy;
 use std::net::{IpAddr, Ipv4Addr};
 use url::Url;
@@ -217,8 +217,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_unbounded_read() {
-        use axum::{routing::get, Router};
         use axum::body::Body;
+        use axum::{routing::get, Router};
         use futures_util::StreamExt;
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
@@ -230,23 +230,26 @@ mod tests {
         let sent_bytes_clone = sent_bytes.clone();
 
         // Create a router that serves a large body (100MB)
-        let app = Router::new().route("/large", get(move || {
-            let sent_bytes = sent_bytes_clone.clone();
-            async move {
-                // We want to stream data so we can detect early termination
-                // Create a stream of 100MB in 1KB chunks
-                let total_size = 100 * 1024 * 1024;
-                let chunk_size = 1024;
-                let chunks = total_size / chunk_size;
+        let app = Router::new().route(
+            "/large",
+            get(move || {
+                let sent_bytes = sent_bytes_clone.clone();
+                async move {
+                    // We want to stream data so we can detect early termination
+                    // Create a stream of 100MB in 1KB chunks
+                    let total_size = 100 * 1024 * 1024;
+                    let chunk_size = 1024;
+                    let chunks = total_size / chunk_size;
 
-                let stream = futures_util::stream::iter(0..chunks).map(move |_| {
-                    sent_bytes.fetch_add(chunk_size, Ordering::SeqCst);
-                    Ok::<_, std::io::Error>(vec![0u8; chunk_size])
-                });
+                    let stream = futures_util::stream::iter(0..chunks).map(move |_| {
+                        sent_bytes.fetch_add(chunk_size, Ordering::SeqCst);
+                        Ok::<_, std::io::Error>(vec![0u8; chunk_size])
+                    });
 
-                Body::from_stream(stream)
-            }
-        }));
+                    Body::from_stream(stream)
+                }
+            }),
+        );
 
         // Start server
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

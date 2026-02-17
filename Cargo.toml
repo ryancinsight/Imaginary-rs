@@ -159,3 +159,7 @@ path = "src/main.rs"
 [lib]
 name = "imaginary"  # Make sure this matches your crate name
 path = "src/lib.rs"
+
+[[bench]]
+name = "bytes_allocation"
+harness = false

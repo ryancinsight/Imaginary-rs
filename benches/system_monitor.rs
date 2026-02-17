@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use sysinfo::System;
 use std::sync::{Mutex, OnceLock};
+use sysinfo::System;
 
 fn bench_system_new(c: &mut Criterion) {
     c.bench_function("system_new_refresh", |b| {
