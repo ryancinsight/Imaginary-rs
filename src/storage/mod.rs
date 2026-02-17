@@ -135,7 +135,7 @@ pub async fn generate_operation_hash(
 
     // Hash the image content
     let mut file = tokio_fs::File::open(image_path).await?;
-    let mut buffer = [0; 8192];
+    let mut buffer = [0; 65536];
     loop {
         let count = file.read(&mut buffer).await?;
         if count == 0 {

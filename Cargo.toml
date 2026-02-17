@@ -103,7 +103,7 @@ bytecheck = "0.6"
 pretty_assertions = "1.4"
 tokio-test = "0.4"
 tempfile = "3.0"
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 futures-util = "0.3.31"
 
@@ -159,3 +159,7 @@ path = "src/main.rs"
 [lib]
 name = "imaginary"  # Make sure this matches your crate name
 path = "src/lib.rs"
+
+[[bench]]
+name = "hashing_bench"
+harness = false
